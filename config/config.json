@@ -1,0 +1,47 @@
+{
+  "database": {
+    "path": "/var/lib/heimdal/db",
+    "gc_interval_minutes": 5
+  },
+  "network": {
+    "interface": "",
+    "auto_detect": true
+  },
+  "discovery": {
+    "arp_scan_interval_seconds": 60,
+    "mdns_enabled": true,
+    "inactive_timeout_minutes": 5
+  },
+  "interceptor": {
+    "enabled": true,
+    "spoof_interval_seconds": 2,
+    "target_macs": []
+  },
+  "profiler": {
+    "persist_interval_seconds": 60,
+    "max_destinations": 100
+  },
+  "api": {
+    "port": 8080,
+    "host": "0.0.0.0",
+    "rate_limit_per_minute": 100
+  },
+  "cloud": {
+    "enabled": false,
+    "provider": "aws",
+    "aws": {
+      "endpoint": "",
+      "client_id": "",
+      "cert_path": "",
+      "key_path": ""
+    },
+    "gcp": {
+      "project_id": "",
+      "topic_id": ""
+    }
+  },
+  "logging": {
+    "level": "info",
+    "file": "/var/log/heimdal/heimdal.log"
+  }
+}

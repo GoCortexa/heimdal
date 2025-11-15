@@ -1,0 +1,47 @@
+{
+  "database": {
+    "path": "{{ heimdal_db_path }}",
+    "gc_interval_minutes": {{ heimdal_db_gc_interval }}
+  },
+  "network": {
+    "interface": "{{ heimdal_network_interface }}",
+    "auto_detect": {{ heimdal_network_auto_detect | lower }}
+  },
+  "discovery": {
+    "arp_scan_interval_seconds": {{ heimdal_arp_scan_interval }},
+    "mdns_enabled": {{ heimdal_mdns_enabled | lower }},
+    "inactive_timeout_minutes": {{ heimdal_inactive_timeout }}
+  },
+  "interceptor": {
+    "enabled": {{ heimdal_interceptor_enabled | lower }},
+    "spoof_interval_seconds": {{ heimdal_spoof_interval }},
+    "target_macs": []
+  },
+  "profiler": {
+    "persist_interval_seconds": {{ heimdal_persist_interval }},
+    "max_destinations": {{ heimdal_max_destinations }}
+  },
+  "api": {
+    "port": {{ heimdal_api_port }},
+    "host": "{{ heimdal_api_host }}",
+    "rate_limit_per_minute": {{ heimdal_api_rate_limit }}
+  },
+  "cloud": {
+    "enabled": {{ heimdal_cloud_enabled | lower }},
+    "provider": "{{ heimdal_cloud_provider }}",
+    "aws": {
+      "endpoint": "",
+      "client_id": "",
+      "cert_path": "",
+      "key_path": ""
+    },
+    "gcp": {
+      "project_id": "",
+      "topic_id": ""
+    }
+  },
+  "logging": {
+    "level": "{{ heimdal_log_level }}",
+    "file": "{{ heimdal_log_file }}"
+  }
+}

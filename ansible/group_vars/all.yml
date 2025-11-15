@@ -1,0 +1,49 @@
+---
+# Heimdal Sensor Configuration Variables
+
+# Binary paths
+heimdal_bin_path: /opt/heimdal/bin
+heimdal_web_path: /opt/heimdal/web/dashboard
+
+# Configuration paths
+heimdal_config_path: /etc/heimdal
+heimdal_data_path: /var/lib/heimdal
+heimdal_log_path: /var/log/heimdal
+
+# Database configuration
+heimdal_db_path: "{{ heimdal_data_path }}/db"
+heimdal_db_gc_interval: 5
+
+# Network configuration
+heimdal_network_auto_detect: true
+heimdal_network_interface: ""
+
+# Discovery configuration
+heimdal_arp_scan_interval: 60
+heimdal_mdns_enabled: true
+heimdal_inactive_timeout: 5
+
+# Interceptor configuration
+heimdal_interceptor_enabled: true
+heimdal_spoof_interval: 2
+
+# Profiler configuration
+heimdal_persist_interval: 60
+heimdal_max_destinations: 100
+
+# API configuration
+heimdal_api_port: 8080
+heimdal_api_host: "0.0.0.0"
+heimdal_api_rate_limit: 100
+
+# Cloud configuration
+heimdal_cloud_enabled: false
+heimdal_cloud_provider: "aws"
+
+# Logging configuration
+heimdal_log_level: "info"
+heimdal_log_file: "{{ heimdal_log_path }}/heimdal.log"
+
+# System user
+heimdal_user: heimdal
+heimdal_group: heimdal

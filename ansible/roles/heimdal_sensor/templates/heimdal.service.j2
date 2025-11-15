@@ -1,0 +1,28 @@
+[Unit]
+Description=Heimdal Network Security Sensor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ heimdal_user }}
+Group={{ heimdal_group }}
+ExecStart={{ heimdal_bin_path }}/heimdal --config {{ heimdal_config_path }}/config.json
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ heimdal_data_path }} {{ heimdal_log_path }}
+
+# Capabilities
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target

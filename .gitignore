@@ -1,0 +1,25 @@
+# Binaries
+ansible/roles/heimdal_sensor/files/heimdal
+
+# Database
+/var/lib/heimdal/
+*.db
+
+# Logs
+/var/log/heimdal/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/
+*.test
+*.out

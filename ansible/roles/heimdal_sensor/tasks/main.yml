@@ -1,0 +1,77 @@
+---
+- name: Install system dependencies
+  apt:
+    name:
+      - libpcap0.8
+      - ca-certificates
+    state: present
+    update_cache: yes
+
+- name: Enable IP forwarding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    state: present
+    reload: yes
+
+- name: Create heimdal system user
+  user:
+    name: "{{ heimdal_user }}"
+    system: yes
+    shell: /usr/sbin/nologin
+    create_home: no
+
+- name: Create directory structure
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ heimdal_user }}"
+    group: "{{ heimdal_group }}"
+    mode: '0755'
+  loop:
+    - "{{ heimdal_bin_path }}"
+    - "{{ heimdal_web_path }}"
+    - "{{ heimdal_config_path }}"
+    - "{{ heimdal_data_path }}"
+    - "{{ heimdal_log_path }}"
+
+- name: Copy heimdal binary
+  copy:
+    src: heimdal
+    dest: "{{ heimdal_bin_path }}/heimdal"
+    owner: "{{ heimdal_user }}"
+    group: "{{ heimdal_group }}"
+    mode: '0755'
+  notify: restart heimdal
+
+- name: Set capabilities on binary
+  capabilities:
+    path: "{{ heimdal_bin_path }}/heimdal"
+    capability: cap_net_raw,cap_net_admin=eip
+    state: present
+
+- name: Deploy configuration file
+  template:
+    src: config.json.j2
+    dest: "{{ heimdal_config_path }}/config.json"
+    owner: "{{ heimdal_user }}"
+    group: "{{ heimdal_group }}"
+    mode: '0644'
+  notify: restart heimdal
+
+- name: Deploy systemd service
+  template:
+    src: heimdal.service.j2
+    dest: /etc/systemd/system/heimdal.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - reload systemd
+    - restart heimdal
+
+- name: Enable and start heimdal service
+  systemd:
+    name: heimdal
+    enabled: yes
+    state: started

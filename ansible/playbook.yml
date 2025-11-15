@@ -1,0 +1,6 @@
+---
+- name: Deploy Heimdal Sensor
+  hosts: heimdal_sensors
+  become: yes
+  roles:
+    - heimdal_sensor
