@@ -1,126 +1,327 @@
-# Build Instructions
+# Heimdal Build Guide
 
-## Prerequisites
+This guide explains how to build the Heimdal monorepo for both Hardware and Desktop products.
 
-### Cross-Compiler Installation
+## Quick Start
 
-The Heimdal sensor is built for ARM64 (Raspberry Pi) architecture. You need a cross-compiler installed on your build machine.
+### Prerequisites
+
+1. **Go 1.21+**: Install from [golang.org](https://golang.org/dl/)
+2. **Cross-compilers**: Run `./build/cross-compile-setup.sh` (see below)
+3. **Make**: Usually pre-installed on Linux/macOS
+
+### Build All Binaries
+
+```bash
+# Install cross-compilation toolchains (first time only)
+./build/cross-compile-setup.sh
+
+# Build all binaries
+make build-all
+```
+
+Binaries will be in the `bin/` directory:
+- `heimdal-hardware-arm64` - Hardware product (Raspberry Pi)
+- `heimdal-desktop-windows-amd64.exe` - Windows desktop
+- `heimdal-desktop-macos-amd64` - macOS Intel
+- `heimdal-desktop-macos-arm64` - macOS Apple Silicon
+- `heimdal-desktop-linux-amd64` - Linux desktop
+
+## Build Targets
+
+### Hardware Product
+
+Build the Raspberry Pi sensor:
+
+```bash
+make build-hardware
+```
+
+Output: `bin/heimdal-hardware-arm64`
+
+### Desktop Products
+
+Build all desktop binaries:
+
+```bash
+make build-desktop-all
+```
+
+Or build for specific platforms:
+
+```bash
+make build-desktop-windows    # Windows
+make build-desktop-macos      # macOS (both architectures)
+make build-desktop-linux      # Linux
+```
+
+### Native Build
+
+Build for your current platform (development):
+
+```bash
+make build-native
+```
+
+Output: `bin/heimdal`
+
+## Testing
+
+### Run All Tests
+
+```bash
+make test
+```
+
+### Run Specific Test Suites
+
+```bash
+make test-unit          # Unit tests only
+make test-property      # Property-based tests
+make test-integration   # Integration tests
+```
+
+### Platform-Specific Tests
+
+```bash
+make test-platform-windows    # Windows tests
+make test-platform-macos      # macOS tests
+make test-platform-linux      # Linux tests
+```
+
+### Coverage Report
+
+```bash
+make test-coverage
+```
+
+This generates `coverage.html` that you can open in a browser.
+
+## Development
+
+### Format Code
+
+```bash
+make fmt
+```
+
+### Run Linter
+
+```bash
+make lint
+```
+
+Note: Requires [golangci-lint](https://golangci-lint.run/usage/install/)
+
+### Run Vet
+
+```bash
+make vet
+```
+
+### Tidy Dependencies
+
+```bash
+make tidy
+```
+
+## Cross-Compilation Setup
+
+### Automatic Setup
+
+Run the setup script to install all required cross-compilers:
+
+```bash
+./build/cross-compile-setup.sh
+```
+
+This script detects your OS and installs:
+- ARM64 Linux cross-compiler (`aarch64-linux-gnu-gcc`)
+- Windows cross-compiler (`x86_64-w64-mingw32-gcc`)
+- Required libraries (libpcap)
+
+### Manual Setup
 
 #### Ubuntu/Debian
+
 ```bash
 sudo apt-get update
-sudo apt-get install gcc-aarch64-linux-gnu
+sudo apt-get install -y \
+  gcc-aarch64-linux-gnu \
+  g++-aarch64-linux-gnu \
+  gcc-mingw-w64-x86-64 \
+  g++-mingw-w64-x86-64 \
+  libpcap-dev
 ```
 
 #### macOS
+
 ```bash
+# Install Xcode command line tools
+xcode-select --install
+
+# Install Homebrew if not already installed
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install cross-compilers
+brew install mingw-w64
 brew tap messense/macos-cross-toolchains
 brew install aarch64-unknown-linux-gnu
 ```
 
-Alternatively, you can use Docker to build in a Linux environment:
-```bash
-docker run --rm -v "$PWD":/workspace -w /workspace golang:1.21 bash -c "
-  apt-get update && apt-get install -y gcc-aarch64-linux-gnu && 
-  ./build.sh
-"
-```
-
-### Go Version
-
-Ensure you have Go 1.21 or later installed:
-```bash
-go version
-```
-
-## Building
-
-### Standard Build
-
-To build the Heimdal sensor for ARM64:
+#### Fedora/RHEL
 
 ```bash
-./build.sh
+sudo dnf install -y \
+  gcc-aarch64-linux-gnu \
+  mingw64-gcc \
+  mingw64-gcc-c++ \
+  libpcap-devel
 ```
 
-This will:
-1. Cross-compile the Go binary for ARM64 (Raspberry Pi)
-2. Enable CGO for native library support
-3. Statically link all dependencies
-4. Output the binary to `ansible/roles/heimdal_sensor/files/heimdal`
-5. Verify the binary is correctly built
+## Packaging
 
-### Build Output
+### Windows Installer
 
-The build script will display:
-- Binary size
-- File type verification (ARM64)
-- Static linking verification
-- Build success/failure status
-
-Example output:
+```bash
+make package-windows
 ```
-Building Heimdal for Raspberry Pi (ARM64)...
-Compiling with CGO enabled for ARM64...
 
-Build complete: ansible/roles/heimdal_sensor/files/heimdal
+Note: Requires NSIS or WiX. See `build/installers/windows/`
 
-Binary details:
--rwxr-xr-x  1 user  staff  15M Nov 16 01:00 ansible/roles/heimdal_sensor/files/heimdal
+### macOS Package
 
-File type:
-ansible/roles/heimdal_sensor/files/heimdal: ELF 64-bit LSB executable, ARM aarch64, statically linked
-
-✓ Verified: ARM64 binary
-✓ Verified: Statically linked
-
-Build successful! Binary ready for deployment.
+```bash
+make package-macos
 ```
+
+Note: Requires `create-dmg` or `pkgbuild`. See `build/package/macos/`
+
+### Linux Packages
+
+```bash
+make package-linux
+```
+
+Note: Requires `dpkg-deb` and `rpmbuild`. See `build/package/linux/`
+
+## Clean
+
+### Remove Build Artifacts
+
+```bash
+make clean
+```
+
+### Remove All Generated Files
+
+```bash
+make clean-all
+```
+
+This also clears Go caches.
 
 ## Troubleshooting
 
-### Cross-Compiler Not Found
+### Cross-compiler not found
 
-If you see:
+**Error**: `aarch64-linux-gnu-gcc: command not found`
+
+**Solution**: Run `./build/cross-compile-setup.sh` or install manually (see above)
+
+### CGO linking errors
+
+**Error**: `undefined reference to 'pcap_open_live'`
+
+**Solution**: Install libpcap development files:
+```bash
+# Ubuntu/Debian
+sudo apt-get install libpcap-dev
+
+# macOS (usually pre-installed)
+# Check: ls /usr/lib/libpcap.dylib
+
+# Fedora/RHEL
+sudo dnf install libpcap-devel
 ```
-Error: aarch64-linux-gnu-gcc not found
+
+### Build fails on macOS
+
+**Error**: `ld: library not found for -lpcap`
+
+**Solution**: Ensure Xcode command line tools are installed:
+```bash
+xcode-select --install
 ```
 
-Install the cross-compiler using the instructions above.
+### Windows build creates console window
 
-### CGO Errors
+**Issue**: Console window appears when running Windows binary
 
-If you encounter CGO-related errors, ensure:
-1. The cross-compiler is in your PATH
-2. CGO_ENABLED=1 is set (the build script does this)
-3. You have the necessary development libraries
+**Solution**: The Makefile already includes `-H windowsgui` flag. If you're building manually, ensure you include it:
+```bash
+go build -ldflags="-H windowsgui" ./cmd/heimdal-desktop
+```
 
-### Static Linking Issues
+## Build Configuration
 
-If the binary is not statically linked:
-1. Ensure you're using the correct linker flags
-2. Check that libpcap-dev is available for the target architecture
-3. Consider using a Docker build environment
+For detailed build configuration, see:
+- `build/README.md` - Build system overview
+- `build/BUILD_CONFIG.md` - Detailed build configuration
+- `Makefile` - Build targets and commands
 
-## Manual Build
+## CI/CD
 
-If you need to customize the build process:
+The build system is designed for CI/CD pipelines. Example GitHub Actions workflow:
+
+```yaml
+name: Build and Test
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      
+      - name: Install cross-compilers
+        run: ./build/cross-compile-setup.sh
+      
+      - name: Build all binaries
+        run: make build-all
+      
+      - name: Run tests
+        run: make test-coverage
+      
+      - name: Upload binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries
+          path: bin/
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.out
+```
+
+## Help
+
+For a complete list of available targets:
 
 ```bash
-CGO_ENABLED=1 \
-CC=aarch64-linux-gnu-gcc \
-GOOS=linux \
-GOARCH=arm64 \
-go build -a \
-  -ldflags="-s -w -extldflags '-static'" \
-  -tags netgo \
-  -o ansible/roles/heimdal_sensor/files/heimdal \
-  ./cmd/heimdal
+make help
 ```
 
-## Next Steps
+## Additional Resources
 
-After building:
-1. The binary is ready at `ansible/roles/heimdal_sensor/files/heimdal`
-2. Deploy using Ansible: `cd ansible && ansible-playbook -i inventory.ini playbook.yml`
-3. The binary will be copied to the Raspberry Pi and configured as a systemd service
+- [Go Build Documentation](https://golang.org/cmd/go/#hdr-Compile_packages_and_dependencies)
+- [CGO Documentation](https://golang.org/cmd/cgo/)
+- [Cross Compilation Guide](https://golang.org/doc/install/source#environment)
+- [libpcap Documentation](https://www.tcpdump.org/manpages/pcap.3pcap.html)

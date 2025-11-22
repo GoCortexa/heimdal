@@ -43,6 +43,8 @@
     group: "{{ heimdal_group }}"
     mode: '0755'
   notify: restart heimdal
+  # Note: This playbook works with both legacy 'heimdal' binary and new 'heimdal-hardware' binary
+  # The binary name in the source should match your build output (heimdal or heimdal-hardware-arm64)
 
 - name: Set capabilities on binary
   capabilities:

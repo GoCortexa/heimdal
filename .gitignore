@@ -1,5 +1,9 @@
 # Binaries
 ansible/roles/heimdal_sensor/files/heimdal
+bin/
+heimdal
+heimdal-desktop
+heimdal-hardware
 
 # Database
 /var/lib/heimdal/
@@ -23,3 +27,6 @@ Thumbs.db
 vendor/
 *.test
 *.out
+coverage.out
+coverage.html
+test-output.log

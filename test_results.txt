@@ -1,0 +1,342 @@
+?   	github.com/mosiko1234/heimdal/sensor/cmd/heimdal	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/cmd/heimdal-desktop	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/analyzer	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/api	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/cloud	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/cloud/aws	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/cloud/gcp	[no test files]
+=== RUN   TestDefaultConfig
+--- PASS: TestDefaultConfig (0.00s)
+=== RUN   TestLoadConfig
+MIGRATION WARNING: Configuration migrated from legacy format
+MIGRATION WARNING: Original configuration backed up to: /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestLoadConfig2670574695/001/config.json.backup.20251122-160340
+Configuration was automatically migrated from legacy format
+  - Configuration migrated from legacy format
+  - Original configuration backed up to: /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestLoadConfig2670574695/001/config.json.backup.20251122-160340
+--- PASS: TestLoadConfig (0.00s)
+=== RUN   TestLoadConfigFileNotFound
+--- PASS: TestLoadConfigFileNotFound (0.00s)
+=== RUN   TestValidateConfig
+=== RUN   TestValidateConfig/valid_default_config
+=== RUN   TestValidateConfig/empty_database_path
+=== RUN   TestValidateConfig/invalid_GC_interval
+=== RUN   TestValidateConfig/invalid_ARP_scan_interval
+=== RUN   TestValidateConfig/invalid_API_port_(too_low)
+=== RUN   TestValidateConfig/invalid_API_port_(too_high)
+=== RUN   TestValidateConfig/invalid_log_level
+=== RUN   TestValidateConfig/cloud_enabled_without_provider_config
+--- PASS: TestValidateConfig (0.00s)
+    --- PASS: TestValidateConfig/valid_default_config (0.00s)
+    --- PASS: TestValidateConfig/empty_database_path (0.00s)
+    --- PASS: TestValidateConfig/invalid_GC_interval (0.00s)
+    --- PASS: TestValidateConfig/invalid_ARP_scan_interval (0.00s)
+    --- PASS: TestValidateConfig/invalid_API_port_(too_low) (0.00s)
+    --- PASS: TestValidateConfig/invalid_API_port_(too_high) (0.00s)
+    --- PASS: TestValidateConfig/invalid_log_level (0.00s)
+    --- PASS: TestValidateConfig/cloud_enabled_without_provider_config (0.00s)
+PASS
+ok  	github.com/mosiko1234/heimdal/sensor/internal/config	(cached)
+?   	github.com/mosiko1234/heimdal/sensor/internal/core/cloud	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/core/detection	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/core/packet	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/core/profiler	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/database	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/desktop/config	[no test files]
+=== RUN   TestLoadConfig
+=== RUN   TestLoadConfig/Valid_free_tier_config
+=== RUN   TestLoadConfig/Valid_pro_tier_config
+=== RUN   TestLoadConfig/Valid_enterprise_tier_config
+=== RUN   TestLoadConfig/Invalid_tier
+=== RUN   TestLoadConfig/Pro_tier_without_license_key
+=== RUN   TestLoadConfig/Invalid_JSON
+--- PASS: TestLoadConfig (0.00s)
+    --- PASS: TestLoadConfig/Valid_free_tier_config (0.00s)
+    --- PASS: TestLoadConfig/Valid_pro_tier_config (0.00s)
+    --- PASS: TestLoadConfig/Valid_enterprise_tier_config (0.00s)
+    --- PASS: TestLoadConfig/Invalid_tier (0.00s)
+    --- PASS: TestLoadConfig/Pro_tier_without_license_key (0.00s)
+    --- PASS: TestLoadConfig/Invalid_JSON (0.00s)
+=== RUN   TestSaveConfig
+--- PASS: TestSaveConfig (0.00s)
+=== RUN   TestLocalLicenseValidator
+--- PASS: TestLocalLicenseValidator (0.00s)
+PASS
+ok  	github.com/mosiko1234/heimdal/sensor/internal/desktop/featuregate	(cached)
+?   	github.com/mosiko1234/heimdal/sensor/internal/desktop/installer	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/desktop/interceptor	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/desktop/orchestrator	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/desktop/systray	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/desktop/visualizer	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/discovery	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/errors	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/hardware/orchestrator	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/interceptor	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/logger	[no test files]
+=== RUN   TestNewAutoConfig
+--- PASS: TestNewAutoConfig (0.00s)
+=== RUN   TestGetInterfaceIP
+--- PASS: TestGetInterfaceIP (0.00s)
+=== RUN   TestThreadSafeAccess
+--- PASS: TestThreadSafeAccess (0.00s)
+=== RUN   TestFindPrimaryInterface
+    autoconfig_test.go:121: Found primary interface: en7 with IP: 192.168.0.182
+--- PASS: TestFindPrimaryInterface (0.00s)
+PASS
+ok  	github.com/mosiko1234/heimdal/sensor/internal/netconfig	(cached)
+?   	github.com/mosiko1234/heimdal/sensor/internal/orchestrator	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/platform	[no test files]
+=== RUN   TestPacketCaptureInterface
+--- PASS: TestPacketCaptureInterface (0.00s)
+=== RUN   TestSystemIntegratorInterface
+--- PASS: TestSystemIntegratorInterface (0.00s)
+=== RUN   TestStorageInterface
+--- PASS: TestStorageInterface (0.00s)
+=== RUN   TestGetDefaultStoragePath
+--- PASS: TestGetDefaultStoragePath (0.00s)
+=== RUN   TestLibpcapAvailability
+--- PASS: TestLibpcapAvailability (0.00s)
+=== RUN   TestPermissionGuidance
+--- PASS: TestPermissionGuidance (0.00s)
+=== RUN   TestListInterfaces
+    integration_test.go:107: Found interface: ap1
+    integration_test.go:107: Found interface: en0
+    integration_test.go:107: Found interface: awdl0
+    integration_test.go:107: Found interface: utun0
+    integration_test.go:107: Found interface: en7
+    integration_test.go:107: Found interface: llw0
+    integration_test.go:107: Found interface: utun1
+    integration_test.go:107: Found interface: utun2
+    integration_test.go:107: Found interface: utun3
+    integration_test.go:107: Found interface: utun4
+    integration_test.go:107: Found interface: utun5
+    integration_test.go:107: Found interface: utun6
+    integration_test.go:107: Found interface: utun7
+    integration_test.go:107: Found interface: lo0
+    integration_test.go:107: Found interface: anpi0
+    integration_test.go:107: Found interface: anpi1
+    integration_test.go:107: Found interface: anpi2
+    integration_test.go:107: Found interface: en4
+    integration_test.go:107: Found interface: en5
+    integration_test.go:107: Found interface: en6
+    integration_test.go:107: Found interface: en1
+    integration_test.go:107: Found interface: en2
+    integration_test.go:107: Found interface: en3
+    integration_test.go:107: Found interface: bridge0
+    integration_test.go:107: Found interface: gif0
+    integration_test.go:107: Found interface: stf0
+--- PASS: TestListInterfaces (0.00s)
+=== RUN   TestSetServiceName
+--- PASS: TestSetServiceName (0.00s)
+PASS
+ok  	github.com/mosiko1234/heimdal/sensor/internal/platform/desktop_macos	(cached)
+?   	github.com/mosiko1234/heimdal/sensor/internal/platform/linux_embedded	[no test files]
+?   	github.com/mosiko1234/heimdal/sensor/internal/profiler	[no test files]
+=== RUN   TestDatabaseToAPIResponseFlow
+2025-11-22 16:03:03.914 [INFO] [Database] badger_db.go:96: Opening database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestDatabaseToAPIResponseFlow1331343025/001/test_db
+2025-11-22 16:03:03.943 [INFO] [Database] badger_db.go:118: Database initialized successfully
+2025/11/22 16:03:03 API: Starting server on 127.0.0.1:18080
+=== RUN   TestDatabaseToAPIResponseFlow/GetDevices
+2025/11/22 16:03:04 API: GET /api/v1/devices - 108.083µs
+=== RUN   TestDatabaseToAPIResponseFlow/GetDevice
+2025/11/22 16:03:04 API: GET /api/v1/devices/aa:bb:cc:dd:ee:ff - 15.125µs
+=== RUN   TestDatabaseToAPIResponseFlow/GetProfile
+2025/11/22 16:03:04 API: GET /api/v1/profiles/aa:bb:cc:dd:ee:ff - 377.416µs
+=== RUN   TestDatabaseToAPIResponseFlow/GetStats
+2025/11/22 16:03:04 API: GET /api/v1/stats - 47.792µs
+=== RUN   TestDatabaseToAPIResponseFlow/GetHealth
+2025/11/22 16:03:04 API: GET /api/v1/health - 23.542µs
+=== RUN   TestDatabaseToAPIResponseFlow/GetNonExistentDevice
+2025/11/22 16:03:04 API: Failed to get device ff:ff:ff:ff:ff:ff: device not found: ff:ff:ff:ff:ff:ff
+2025/11/22 16:03:04 API: GET /api/v1/devices/ff:ff:ff:ff:ff:ff - 13.041µs
+2025/11/22 16:03:04 API: Shutting down server...
+2025/11/22 16:03:04 API: Server stopped
+2025-11-22 16:03:04.551 [INFO] [Database] badger_db.go:127: Closing database...
+2025-11-22 16:03:04.567 [INFO] [Database] badger_db.go:136: Database closed successfully
+--- PASS: TestDatabaseToAPIResponseFlow (0.65s)
+    --- PASS: TestDatabaseToAPIResponseFlow/GetDevices (0.00s)
+    --- PASS: TestDatabaseToAPIResponseFlow/GetDevice (0.00s)
+    --- PASS: TestDatabaseToAPIResponseFlow/GetProfile (0.00s)
+    --- PASS: TestDatabaseToAPIResponseFlow/GetStats (0.00s)
+    --- PASS: TestDatabaseToAPIResponseFlow/GetHealth (0.00s)
+    --- PASS: TestDatabaseToAPIResponseFlow/GetNonExistentDevice (0.00s)
+=== RUN   TestAPIRateLimiting
+2025-11-22 16:03:04.569 [INFO] [Database] badger_db.go:96: Opening database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestAPIRateLimiting2140089116/001/test_db
+2025-11-22 16:03:04.590 [INFO] [Database] badger_db.go:118: Database initialized successfully
+2025/11/22 16:03:04 API: Starting server on 127.0.0.1:18081
+2025/11/22 16:03:05 API: GET /api/v1/health - 25.25µs
+2025/11/22 16:03:05 API: GET /api/v1/health - 7.917µs
+2025/11/22 16:03:05 API: GET /api/v1/health - 9.833µs
+2025/11/22 16:03:05 API: GET /api/v1/health - 7.375µs
+2025/11/22 16:03:05 API: GET /api/v1/health - 6.416µs
+2025/11/22 16:03:05 API: GET /api/v1/health - 6.75µs
+2025/11/22 16:03:05 API: GET /api/v1/health - 6.125µs
+2025/11/22 16:03:05 API: GET /api/v1/health - 36.083µs
+2025/11/22 16:03:05 API: GET /api/v1/health - 15.5µs
+2025/11/22 16:03:05 API: GET /api/v1/health - 8.125µs
+    api_test.go:299: Success: 10, Rate limited: 0
+2025/11/22 16:03:05 API: Shutting down server...
+2025/11/22 16:03:05 API: Server stopped
+2025-11-22 16:03:05.196 [INFO] [Database] badger_db.go:127: Closing database...
+2025-11-22 16:03:05.203 [INFO] [Database] badger_db.go:136: Database closed successfully
+--- PASS: TestAPIRateLimiting (0.63s)
+=== RUN   TestAPICORS
+2025-11-22 16:03:05.204 [INFO] [Database] badger_db.go:96: Opening database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestAPICORS3712429180/001/test_db
+2025-11-22 16:03:05.225 [INFO] [Database] badger_db.go:118: Database initialized successfully
+2025/11/22 16:03:05 API: Starting server on 127.0.0.1:18082
+2025/11/22 16:03:05 API: GET /api/v1/health - 54.5µs
+2025/11/22 16:03:05 API: Shutting down server...
+2025/11/22 16:03:05 API: Server stopped
+2025-11-22 16:03:05.830 [INFO] [Database] badger_db.go:127: Closing database...
+2025-11-22 16:03:05.840 [INFO] [Database] badger_db.go:136: Database closed successfully
+--- PASS: TestAPICORS (0.64s)
+=== RUN   TestDeviceDiscoveryToDatabaseFlow
+2025-11-22 16:03:05.843 [INFO] [Database] badger_db.go:96: Opening database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestDeviceDiscoveryToDatabaseFlow4115947509/001/test_db
+2025-11-22 16:03:05.865 [INFO] [Database] badger_db.go:118: Database initialized successfully
+2025-11-22 16:03:05.865 [INFO] [NetConfig] autoconfig.go:70: Starting network detection...
+2025-11-22 16:03:05.865 [WARN] [NetConfig] autoconfig.go:84: Failed to detect network: failed to get gateway: failed to open /proc/net/route: open /proc/net/route: no such file or directory. Retrying in 5 seconds...
+    device_discovery_test.go:41: Network detection timed out - skipping test (expected on macOS)
+2025-11-22 16:03:10.870 [INFO] [Database] badger_db.go:127: Closing database...
+2025-11-22 16:03:10.870 [WARN] [NetConfig] autoconfig.go:84: Failed to detect network: failed to get gateway: failed to open /proc/net/route: open /proc/net/route: no such file or directory. Retrying in 5 seconds...
+2025-11-22 16:03:10.878 [INFO] [Database] badger_db.go:136: Database closed successfully
+--- SKIP: TestDeviceDiscoveryToDatabaseFlow (5.04s)
+=== RUN   TestDeviceBatchPersistence
+2025-11-22 16:03:10.879 [INFO] [Database] badger_db.go:96: Opening database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestDeviceBatchPersistence3575087723/001/test_db
+2025-11-22 16:03:10.904 [INFO] [Database] badger_db.go:118: Database initialized successfully
+2025-11-22 16:03:10.904 [INFO] [Database] badger_db.go:127: Closing database...
+2025-11-22 16:03:10.918 [INFO] [Database] badger_db.go:136: Database closed successfully
+--- PASS: TestDeviceBatchPersistence (0.04s)
+=== RUN   TestDeviceLifecycle
+2025-11-22 16:03:10.919 [INFO] [Database] badger_db.go:96: Opening database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestDeviceLifecycle3506930349/001/test_db
+2025-11-22 16:03:10.951 [INFO] [Database] badger_db.go:118: Database initialized successfully
+2025-11-22 16:03:10.951 [INFO] [Database] badger_db.go:127: Closing database...
+2025-11-22 16:03:10.963 [INFO] [Database] badger_db.go:136: Database closed successfully
+--- PASS: TestDeviceLifecycle (0.05s)
+=== RUN   TestOrchestratorShutdownSequence
+2025-11-22 16:03:10.964 [INFO] [Orchestrator] orchestrator.go:110: === Heimdal Sensor Starting ===
+2025-11-22 16:03:10.964 [INFO] [Orchestrator] orchestrator.go:138: Initializing components...
+2025-11-22 16:03:10.964 [INFO] [Orchestrator] orchestrator.go:141: Initializing database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestOrchestratorShutdownSequence1003929989/001/test_db
+2025-11-22 16:03:10.964 [INFO] [Database] badger_db.go:96: Opening database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestOrchestratorShutdownSequence1003929989/001/test_db
+2025-11-22 16:03:10.986 [INFO] [Database] badger_db.go:118: Database initialized successfully
+2025-11-22 16:03:10.986 [INFO] [Orchestrator] orchestrator.go:154: Initializing network auto-configuration...
+2025-11-22 16:03:10.986 [INFO] [NetConfig] autoconfig.go:70: Starting network detection...
+2025-11-22 16:03:10.986 [WARN] [NetConfig] autoconfig.go:84: Failed to detect network: failed to get gateway: failed to open /proc/net/route: open /proc/net/route: no such file or directory. Retrying in 5 seconds...
+    orchestrator_test.go:61: Component status after startup: map[]
+    orchestrator_test.go:73: No components running (expected on macOS without network)
+--- SKIP: TestOrchestratorShutdownSequence (3.01s)
+=== RUN   TestOrchestratorComponentInitialization
+    orchestrator_test.go:123: Orchestrator created successfully
+--- PASS: TestOrchestratorComponentInitialization (0.00s)
+=== RUN   TestOrchestratorWithMinimalConfig
+    orchestrator_test.go:186: Orchestrator created with minimal config
+--- PASS: TestOrchestratorWithMinimalConfig (0.00s)
+=== RUN   TestOrchestratorComponentHealth
+2025-11-22 16:03:13.971 [INFO] [Orchestrator] orchestrator.go:110: === Heimdal Sensor Starting ===
+2025-11-22 16:03:13.971 [INFO] [Orchestrator] orchestrator.go:138: Initializing components...
+2025-11-22 16:03:13.971 [INFO] [Orchestrator] orchestrator.go:141: Initializing database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestOrchestratorComponentHealth1707716614/001/test_db
+2025-11-22 16:03:13.971 [INFO] [Database] badger_db.go:96: Opening database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestOrchestratorComponentHealth1707716614/001/test_db
+2025-11-22 16:03:13.997 [INFO] [Database] badger_db.go:118: Database initialized successfully
+2025-11-22 16:03:13.997 [INFO] [Orchestrator] orchestrator.go:154: Initializing network auto-configuration...
+2025-11-22 16:03:13.997 [INFO] [NetConfig] autoconfig.go:70: Starting network detection...
+2025-11-22 16:03:13.997 [WARN] [NetConfig] autoconfig.go:84: Failed to detect network: failed to get gateway: failed to open /proc/net/route: open /proc/net/route: no such file or directory. Retrying in 5 seconds...
+2025-11-22 16:03:15.872 [WARN] [NetConfig] autoconfig.go:84: Failed to detect network: failed to get gateway: failed to open /proc/net/route: open /proc/net/route: no such file or directory. Retrying in 5 seconds...
+2025-11-22 16:03:15.989 [WARN] [NetConfig] autoconfig.go:84: Failed to detect network: failed to get gateway: failed to open /proc/net/route: open /proc/net/route: no such file or directory. Retrying in 5 seconds...
+    orchestrator_test.go:239: Component health tracking verified
+--- PASS: TestOrchestratorComponentHealth (3.00s)
+=== RUN   TestOrchestratorConfigValidation
+=== RUN   TestOrchestratorConfigValidation/valid_config
+=== RUN   TestOrchestratorConfigValidation/invalid_database_path
+=== RUN   TestOrchestratorConfigValidation/invalid_API_port
+=== RUN   TestOrchestratorConfigValidation/invalid_log_level
+--- PASS: TestOrchestratorConfigValidation (0.00s)
+    --- PASS: TestOrchestratorConfigValidation/valid_config (0.00s)
+    --- PASS: TestOrchestratorConfigValidation/invalid_database_path (0.00s)
+    --- PASS: TestOrchestratorConfigValidation/invalid_API_port (0.00s)
+    --- PASS: TestOrchestratorConfigValidation/invalid_log_level (0.00s)
+=== RUN   TestOrchestratorDatabasePersistence
+2025-11-22 16:03:16.974 [INFO] [Orchestrator] orchestrator.go:110: === Heimdal Sensor Starting ===
+2025-11-22 16:03:16.974 [INFO] [Orchestrator] orchestrator.go:138: Initializing components...
+2025-11-22 16:03:16.974 [INFO] [Orchestrator] orchestrator.go:141: Initializing database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestOrchestratorDatabasePersistence1345503868/001/test_db
+2025-11-22 16:03:16.974 [INFO] [Database] badger_db.go:96: Opening database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestOrchestratorDatabasePersistence1345503868/001/test_db
+2025-11-22 16:03:17.009 [INFO] [Database] badger_db.go:118: Database initialized successfully
+2025-11-22 16:03:17.009 [INFO] [Orchestrator] orchestrator.go:154: Initializing network auto-configuration...
+2025-11-22 16:03:17.009 [INFO] [NetConfig] autoconfig.go:70: Starting network detection...
+2025-11-22 16:03:17.009 [WARN] [NetConfig] autoconfig.go:84: Failed to detect network: failed to get gateway: failed to open /proc/net/route: open /proc/net/route: no such file or directory. Retrying in 5 seconds...
+    orchestrator_test.go:346: Database persistence verified
+--- PASS: TestOrchestratorDatabasePersistence (2.00s)
+=== RUN   TestPacketAnalyzerToProfilerToDatabaseFlow
+2025-11-22 16:03:18.975 [INFO] [Database] badger_db.go:96: Opening database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestPacketAnalyzerToProfilerToDatabaseFlow566500590/001/test_db
+2025-11-22 16:03:18.998 [WARN] [NetConfig] autoconfig.go:84: Failed to detect network: failed to get gateway: failed to open /proc/net/route: open /proc/net/route: no such file or directory. Retrying in 5 seconds...
+2025-11-22 16:03:19.009 [INFO] [Database] badger_db.go:118: Database initialized successfully
+2025/11/22 16:03:19 [Profiler] Loaded 0 existing profiles from database
+2025/11/22 16:03:19 [Profiler] Starting behavioral profiler...
+2025/11/22 16:03:19 [Profiler] Started with persistence interval of 2s
+2025-11-22 16:03:20.872 [WARN] [NetConfig] autoconfig.go:84: Failed to detect network: failed to get gateway: failed to open /proc/net/route: open /proc/net/route: no such file or directory. Retrying in 5 seconds...
+2025-11-22 16:03:20.989 [WARN] [NetConfig] autoconfig.go:84: Failed to detect network: failed to get gateway: failed to open /proc/net/route: open /proc/net/route: no such file or directory. Retrying in 5 seconds...
+2025/11/22 16:03:21 [Profiler] Successfully persisted 1 profiles to database
+2025-11-22 16:03:22.009 [WARN] [NetConfig] autoconfig.go:84: Failed to detect network: failed to get gateway: failed to open /proc/net/route: open /proc/net/route: no such file or directory. Retrying in 5 seconds...
+2025/11/22 16:03:22 [Profiler] Stopping behavioral profiler...
+2025/11/22 16:03:22 [Profiler] Successfully persisted 1 profiles to database
+2025/11/22 16:03:22 [Profiler] Stopped
+2025-11-22 16:03:22.510 [INFO] [Database] badger_db.go:127: Closing database...
+2025-11-22 16:03:22.526 [INFO] [Database] badger_db.go:136: Database closed successfully
+--- PASS: TestPacketAnalyzerToProfilerToDatabaseFlow (3.55s)
+=== RUN   TestProfileBatchPersistence
+2025-11-22 16:03:22.527 [INFO] [Database] badger_db.go:96: Opening database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestProfileBatchPersistence1772288954/001/test_db
+2025-11-22 16:03:22.549 [INFO] [Database] badger_db.go:118: Database initialized successfully
+2025-11-22 16:03:22.549 [INFO] [Database] badger_db.go:127: Closing database...
+2025-11-22 16:03:22.561 [INFO] [Database] badger_db.go:136: Database closed successfully
+--- PASS: TestProfileBatchPersistence (0.03s)
+=== RUN   TestProfileAggregation
+2025-11-22 16:03:22.562 [INFO] [Database] badger_db.go:96: Opening database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestProfileAggregation2685434184/001/test_db
+2025-11-22 16:03:22.583 [INFO] [Database] badger_db.go:118: Database initialized successfully
+2025/11/22 16:03:22 [Profiler] Loaded 0 existing profiles from database
+2025/11/22 16:03:22 [Profiler] Starting behavioral profiler...
+2025/11/22 16:03:22 [Profiler] Started with persistence interval of 1m0s
+2025/11/22 16:03:23 [Profiler] Stopping behavioral profiler...
+2025/11/22 16:03:23 [Profiler] Successfully persisted 2 profiles to database
+2025/11/22 16:03:23 [Profiler] Stopped
+2025-11-22 16:03:23.084 [INFO] [Database] badger_db.go:127: Closing database...
+2025-11-22 16:03:23.106 [INFO] [Database] badger_db.go:136: Database closed successfully
+--- PASS: TestProfileAggregation (0.55s)
+=== RUN   TestHourlyActivityTracking
+2025-11-22 16:03:23.107 [INFO] [Database] badger_db.go:96: Opening database at /var/folders/pt/tjgwh6394_s3rqppn85qt_v00000gn/T/TestHourlyActivityTracking1484632402/001/test_db
+2025-11-22 16:03:23.128 [INFO] [Database] badger_db.go:118: Database initialized successfully
+2025/11/22 16:03:23 [Profiler] Loaded 0 existing profiles from database
+2025/11/22 16:03:23 [Profiler] Starting behavioral profiler...
+2025/11/22 16:03:23 [Profiler] Started with persistence interval of 1m0s
+2025/11/22 16:03:23 [Profiler] Stopping behavioral profiler...
+2025/11/22 16:03:23 [Profiler] Successfully persisted 1 profiles to database
+2025/11/22 16:03:23 [Profiler] Stopped
+2025-11-22 16:03:23.628 [INFO] [Database] badger_db.go:127: Closing database...
+2025-11-22 16:03:23.642 [INFO] [Database] badger_db.go:136: Database closed successfully
+--- PASS: TestHourlyActivityTracking (0.54s)
+PASS
+ok  	github.com/mosiko1234/heimdal/sensor/test/integration	(cached)
+?   	github.com/mosiko1234/heimdal/sensor/test/mocks	[no test files]
+=== RUN   TestProperty_AnomalyDetectionPatternRecognition
++ Detector identifies unexpected destinations: OK, passed 100 tests.
++ Detector identifies unusual ports: OK, passed 100 tests.
++ Detector identifies traffic spikes: OK, passed 100 tests.
+--- PASS: TestProperty_AnomalyDetectionPatternRecognition (0.00s)
+=== RUN   TestProperty_AnomalyAlertStructure
++ All anomalies have required fields: OK, passed 100 tests.
+--- PASS: TestProperty_AnomalyAlertStructure (0.00s)
+=== RUN   TestProperty_AnomalyDetectionSensitivity
++ Sensitivity affects detection behavior: OK, passed 100 tests.
++ Sensitivity can be updated dynamically: OK, passed 100 tests.
+--- PASS: TestProperty_AnomalyDetectionSensitivity (0.00s)
+=== RUN   TestProperty_CloudMessageTypeSupport
++ Cloud connector serializes all message types: OK, passed 100 tests.
+--- PASS: TestProperty_CloudMessageTypeSupport (0.00s)
+=== RUN   TestProperty_CloudMetadataInclusion
++ Cloud messages include device type metadata: OK, passed 100 tests.
+--- PASS: TestProperty_CloudMetadataInclusion (0.00s)
+=== RUN   TestProperty_CloudAuthenticationConsistency
++ Cloud connectors use consistent authentication: OK, passed 100 tests.
+--- PASS: TestProperty_CloudAuthenticationConsistency (0.00s)
+=== RUN   TestProperty_PacketMetadataExtractionCompleteness
++ Packet metadata extraction is complete for all valid packets: OK, passed
+   100 tests.
+--- PASS: TestProperty_PacketMetadataExtractionCompleteness (0.00s)
+PASS
+ok  	github.com/mosiko1234/heimdal/sensor/test/property	(cached)

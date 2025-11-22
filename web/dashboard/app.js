@@ -8,11 +8,15 @@ const REFRESH_INTERVAL = 10000;
 let refreshTimer = null;
 let currentDeviceMAC = null;
 
+// WebSocket connection
+let ws = null;
+
 // Initialize dashboard on page load
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Heimdal Dashboard initialized');
     loadDashboard();
     startAutoRefresh();
+    connectWebSocket();
 });
 
 // Start auto-refresh
@@ -77,8 +81,7 @@ async function loadDevices() {
         const response = await fetch(`${API_BASE}/devices`);
         if (!response.ok) throw new Error('Failed to fetch devices');
         
-        const data = await response.json();
-        const devices = data.devices || [];
+        const devices = await response.json();
         
         const tbody = document.getElementById('devicesTableBody');
         
@@ -114,6 +117,12 @@ async function loadDevices() {
                 </td>
             </tr>
         `).join('');
+        
+        // Update stats
+        const totalDevices = devices.length;
+        const activeDevices = devices.filter(d => d.is_active).length;
+        document.getElementById('totalDevices').textContent = totalDevices;
+        document.getElementById('activeDevices').textContent = activeDevices;
     } catch (error) {
         console.error('Failed to load devices:', error);
         const tbody = document.getElementById('devicesTableBody');
@@ -368,4 +377,72 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+
+// WebSocket connection for real-time updates
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    
+    console.log('Connecting to WebSocket:', wsUrl);
+    
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+        console.log('WebSocket connected');
+    };
+    
+    ws.onmessage = (event) => {
+        try {
+            const message = JSON.parse(event.data);
+            handleWebSocketMessage(message);
+        } catch (error) {
+            console.error('Failed to parse WebSocket message:', error);
+        }
+    };
+    
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+    };
+    
+    ws.onclose = () => {
+        console.log('WebSocket disconnected, reconnecting in 5 seconds...');
+        setTimeout(connectWebSocket, 5000);
+    };
+}
+
+// Handle WebSocket messages
+function handleWebSocketMessage(message) {
+    console.log('WebSocket message received:', message.type);
+    
+    switch (message.type) {
+        case 'device':
+            // New device discovered or device updated
+            loadDevices();
+            break;
+            
+        case 'traffic':
+            // Traffic update - refresh current profile if viewing
+            if (currentDeviceMAC) {
+                loadProfile(currentDeviceMAC);
+            }
+            break;
+            
+        case 'anomaly':
+            // Anomaly detected - could show notification
+            console.log('Anomaly detected:', message.payload);
+            loadDevices(); // Refresh to show any status changes
+            break;
+            
+        case 'profile':
+            // Profile updated - refresh if viewing this device
+            if (currentDeviceMAC && message.payload && message.payload.mac === currentDeviceMAC) {
+                loadProfile(currentDeviceMAC);
+            }
+            break;
+            
+        default:
+            console.log('Unknown message type:', message.type);
+    }
 }

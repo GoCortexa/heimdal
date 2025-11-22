@@ -25,7 +25,6 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -163,29 +162,20 @@ func DefaultConfig() *Config {
 
 // LoadConfig loads configuration from a JSON file
 // If the file doesn't exist or is invalid, it returns the default configuration
+// This function automatically handles migration from legacy format
 func LoadConfig(path string) (*Config, error) {
-	// Start with default configuration
-	config := DefaultConfig()
-
-	// Check if file exists
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return nil, fmt.Errorf("configuration file not found: %s", path)
-	}
-
-	// Read file
-	data, err := os.ReadFile(path)
+	// Try to load with automatic migration
+	config, result, err := LoadConfigWithMigration(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read configuration file: %w", err)
+		return nil, err
 	}
 
-	// Parse JSON
-	if err := json.Unmarshal(data, config); err != nil {
-		return nil, fmt.Errorf("failed to parse configuration file: %w", err)
-	}
-
-	// Validate configuration
-	if err := config.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid configuration: %w", err)
+	// Log migration warnings if any
+	if result.WasMigrated {
+		fmt.Fprintf(os.Stderr, "Configuration was automatically migrated from legacy format\n")
+		for _, warning := range result.Warnings {
+			fmt.Fprintf(os.Stderr, "  - %s\n", warning)
+		}
 	}
 
 	return config, nil
