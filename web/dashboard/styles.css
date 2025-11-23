@@ -195,6 +195,204 @@ main {
     color: #f44336;
 }
 
+/* Device name and type styling */
+.device-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.device-type-badge {
+    display: inline-block;
+    background: #667eea;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    text-transform: capitalize;
+    margin-top: 4px;
+}
+
+.manufacturer-detail {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 2px;
+}
+
+/* Filter bar */
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.btn-filter {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.3s;
+}
+
+.btn-filter:hover {
+    background: #5568d3;
+}
+
+.filter-bar {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f5f5f5;
+    border-radius: 8px;
+}
+
+.filter-bar select,
+.filter-bar input {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.filter-bar select {
+    min-width: 200px;
+}
+
+.filter-bar input {
+    flex: 1;
+    min-width: 300px;
+}
+
+/* Anomalies section */
+.anomalies-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #fff3cd;
+    border-radius: 8px;
+    border: 2px solid #ffc107;
+}
+
+.anomalies-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.anomaly-card {
+    background: white;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    border-left: 4px solid #ffc107;
+}
+
+.anomaly-card.severity-high {
+    border-left-color: #ff5722;
+}
+
+.anomaly-card.severity-critical {
+    border-left-color: #d32f2f;
+}
+
+.anomaly-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.anomaly-type {
+    font-weight: 600;
+    color: #333;
+}
+
+.anomaly-severity {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+
+.anomaly-severity.low {
+    background: #4caf50;
+    color: white;
+}
+
+.anomaly-severity.medium {
+    background: #ffc107;
+    color: #333;
+}
+
+.anomaly-severity.high {
+    background: #ff5722;
+    color: white;
+}
+
+.anomaly-severity.critical {
+    background: #d32f2f;
+    color: white;
+}
+
+.anomaly-description {
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.anomaly-timestamp {
+    font-size: 0.85rem;
+    color: #999;
+}
+
+/* Topology section */
+.topology-section {
+    margin-bottom: 30px;
+}
+
+.topology-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.btn-topology {
+    background: #f5f5f5;
+    color: #333;
+    border: 1px solid #ddd;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+.btn-topology:hover {
+    background: #e0e0e0;
+}
+
+.btn-topology.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.topology-legend {
+    display: flex;
+    gap: 15px;
+    margin-top: 15px;
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 6px;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    font-size: 0.9rem;
+    color: #666;
+}
+
 /* Profile section */
 .profile-section {
     margin-top: 40px;

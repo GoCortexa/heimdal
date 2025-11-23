@@ -16,46 +16,35 @@ func (s *Scanner) scanMDNS() {
 	netConfig := s.netConfig.GetConfig()
 	if netConfig == nil {
 		log.Println("Network configuration not available, skipping mDNS scan")
+		s.reportStatus(StatusLevelWarning, "mDNS scan skipped: no network configuration")
 		return
 	}
 
 	log.Println("Starting mDNS discovery scan")
+	s.reportStatus(StatusLevelInfo, "mDNS scan started")
 
-	// Create a channel to receive mDNS entries
-	entriesCh := make(chan *mdns.ServiceEntry, 100)
-	
 	// Create context with timeout for the scan
-	ctx, cancel := context.WithTimeout(s.ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(s.ctx, s.options.MDNSQueryTimeout)
 	defer cancel()
-
-	// Start goroutine to process entries
-	done := make(chan struct{})
-	deviceCount := 0
-	
-	go func() {
-		defer close(done)
-		for entry := range entriesCh {
-			s.processMDNSEntry(entry)
-			deviceCount++
-		}
-	}()
 
 	// Perform mDNS query for common service types
 	serviceTypes := []string{
-		"_workstation._tcp",  // Workstations
-		"_device-info._tcp",  // Device info
-		"_http._tcp",         // HTTP services
-		"_ssh._tcp",          // SSH services
-		"_smb._tcp",          // SMB/Samba
-		"_airplay._tcp",      // AirPlay devices
-		"_googlecast._tcp",   // Chromecast devices
-		"_hap._tcp",          // HomeKit devices
-		"_homekit._tcp",      // HomeKit devices (alternate)
-		"_printer._tcp",      // Printers
-		"_ipp._tcp",          // Internet Printing Protocol
-		"_scanner._tcp",      // Scanners
-		"_raop._tcp",         // Remote Audio Output Protocol (AirPlay)
+		"_workstation._tcp", // Workstations
+		"_device-info._tcp", // Device info
+		"_http._tcp",        // HTTP services
+		"_ssh._tcp",         // SSH services
+		"_smb._tcp",         // SMB/Samba
+		"_airplay._tcp",     // AirPlay devices
+		"_googlecast._tcp",  // Chromecast devices
+		"_hap._tcp",         // HomeKit devices
+		"_homekit._tcp",     // HomeKit devices (alternate)
+		"_printer._tcp",     // Printers
+		"_ipp._tcp",         // Internet Printing Protocol
+		"_scanner._tcp",     // Scanners
+		"_raop._tcp",        // Remote Audio Output Protocol (AirPlay)
 	}
+
+	deviceCount := 0
 
 	// Query each service type
 	for _, serviceType := range serviceTypes {
@@ -65,20 +54,23 @@ func (s *Scanner) scanMDNS() {
 		default:
 		}
 
-		if err := s.queryMDNSService(ctx, serviceType, entriesCh); err != nil {
+		count, err := s.queryAndProcessMDNSService(ctx, serviceType)
+		if err != nil {
 			log.Printf("Error querying mDNS service %s: %v", serviceType, err)
+			s.reportStatus(StatusLevelWarning, "mDNS query %s failed: %v", serviceType, err)
+		} else {
+			deviceCount += count
 		}
 	}
 
-	// Close entries channel and wait for processing to complete
-	close(entriesCh)
-	<-done
-
 	log.Printf("mDNS scan completed: discovered %d service entries", deviceCount)
+	s.reportStatus(StatusLevelInfo, "mDNS scan completed (%d service entries)", deviceCount)
 }
 
-// queryMDNSService queries a specific mDNS service type
-func (s *Scanner) queryMDNSService(ctx context.Context, serviceType string, entriesCh chan<- *mdns.ServiceEntry) error {
+// queryAndProcessMDNSService queries a specific mDNS service type and processes results
+func (s *Scanner) queryAndProcessMDNSService(ctx context.Context, serviceType string) (int, error) {
+	entriesCh := make(chan *mdns.ServiceEntry, 100)
+
 	// Set up mDNS query parameters
 	params := &mdns.QueryParam{
 		Service:             serviceType,
@@ -88,16 +80,37 @@ func (s *Scanner) queryMDNSService(ctx context.Context, serviceType string, entr
 		WantUnicastResponse: false,
 	}
 
-	// Execute the query
-	if err := mdns.Query(params); err != nil {
-		return fmt.Errorf("mDNS query failed: %w", err)
+	if deadline, ok := ctx.Deadline(); ok {
+		timeout := time.Until(deadline)
+		if timeout > 0 {
+			params.Timeout = timeout
+		}
 	}
 
-	return nil
+	// Start goroutine to execute query
+	done := make(chan error, 1)
+	go func() {
+		done <- mdns.Query(params)
+		close(entriesCh)
+	}()
+
+	// Process entries as they arrive
+	count := 0
+	for entry := range entriesCh {
+		s.processMDNSEntry(entry, serviceType)
+		count++
+	}
+
+	// Wait for query to complete
+	if err := <-done; err != nil {
+		return count, fmt.Errorf("mDNS query failed: %w", err)
+	}
+
+	return count, nil
 }
 
 // processMDNSEntry processes a single mDNS service entry
-func (s *Scanner) processMDNSEntry(entry *mdns.ServiceEntry) {
+func (s *Scanner) processMDNSEntry(entry *mdns.ServiceEntry, serviceType string) {
 	if entry == nil {
 		return
 	}
@@ -125,11 +138,30 @@ func (s *Scanner) processMDNSEntry(entry *mdns.ServiceEntry) {
 		return
 	}
 
+	// Track the service type for this device
+	s.devicesMu.Lock()
+	if services, exists := s.deviceServices[mac]; exists {
+		// Add service if not already present
+		found := false
+		for _, svc := range services {
+			if svc == serviceType {
+				found = true
+				break
+			}
+		}
+		if !found {
+			s.deviceServices[mac] = append(services, serviceType)
+		}
+	} else {
+		s.deviceServices[mac] = []string{serviceType}
+	}
+	s.devicesMu.Unlock()
+
 	// Clean up the name (remove service type suffix)
 	name = s.cleanMDNSName(name)
 
 	// Update device with mDNS information
-	log.Printf("mDNS: Discovered device %s (%s) at %s", name, mac, ip)
+	log.Printf("mDNS: Discovered device %s (%s) at %s with service %s", name, mac, ip, serviceType)
 	s.updateDevice(mac, ip, name, "")
 }
 
@@ -228,7 +260,7 @@ func (s *Scanner) startMDNSListener() error {
 	// The hashicorp/mdns library primarily supports active queries
 	// For passive listening, you might need to use a different library
 	// or implement custom multicast UDP listening on 224.0.0.251:5353
-	
+
 	log.Println("Passive mDNS listening not yet implemented")
 	return nil
 }

@@ -12,7 +12,7 @@ import (
 
 // UpdateMessage represents a real-time update sent to WebSocket clients
 type UpdateMessage struct {
-	Type      string      `json:"type"`    // "device", "traffic", "anomaly"
+	Type      string      `json:"type"` // "device", "traffic", "anomaly"
 	Payload   interface{} `json:"payload"`
 	Timestamp string      `json:"timestamp"`
 }

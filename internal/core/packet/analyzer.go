@@ -23,6 +23,7 @@ import (
 type PacketInfo struct {
 	Timestamp time.Time
 	SrcMAC    string
+	DstMAC    string // Destination MAC (for local network topology)
 	DstIP     string
 	DstPort   uint16
 	Protocol  string
@@ -189,6 +190,11 @@ func (a *Analyzer) extractPacketInfo(packet *platform.Packet) *PacketInfo {
 		SrcMAC:    packet.SrcMAC.String(),
 		Protocol:  packet.Protocol,
 		Size:      packet.PayloadSize,
+	}
+
+	// Extract destination MAC (for topology tracking)
+	if packet.DstMAC != nil && len(packet.DstMAC) > 0 {
+		info.DstMAC = packet.DstMAC.String()
 	}
 
 	// Extract destination IP

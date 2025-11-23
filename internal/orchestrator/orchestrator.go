@@ -55,25 +55,25 @@ type Orchestrator struct {
 	db         *database.DatabaseManager
 	components []Component
 	logger     *logger.Logger
-	
+
 	// Component instances
-	netConfig       *netconfig.AutoConfig
-	scanner         *discovery.Scanner
-	arpSpoofer      *interceptor.ARPSpoofer
-	sniffer         *analyzer.Sniffer
-	profilerComp    *profiler.Profiler
-	apiServer       *api.APIServer
-	cloudOrch       *cloud.Orchestrator
-	
+	netConfig    *netconfig.AutoConfig
+	scanner      *discovery.Scanner
+	arpSpoofer   *interceptor.ARPSpoofer
+	sniffer      *analyzer.Sniffer
+	profilerComp *profiler.Profiler
+	apiServer    *api.APIServer
+	cloudOrch    *cloud.Orchestrator
+
 	// Communication channels
 	deviceChan chan *database.Device
 	packetChan chan analyzer.PacketInfo
-	
+
 	// Lifecycle management
 	shutdownCh chan struct{}
 	wg         sync.WaitGroup
 	mu         sync.Mutex
-	
+
 	// Component health tracking
 	componentHealth map[string]*componentHealthInfo
 	healthMu        sync.RWMutex
@@ -93,7 +93,7 @@ func NewOrchestrator(cfg *config.Config) (*Orchestrator, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("configuration is required")
 	}
-	
+
 	return &Orchestrator{
 		config:          cfg,
 		logger:          logger.NewComponentLogger("Orchestrator"),
@@ -108,27 +108,27 @@ func NewOrchestrator(cfg *config.Config) (*Orchestrator, error) {
 // Run starts all components and blocks until shutdown signal is received
 func (o *Orchestrator) Run() error {
 	o.logger.Info("=== Heimdal Sensor Starting ===")
-	
+
 	// Initialize all components
 	if err := o.initializeComponents(); err != nil {
 		return errors.Wrap(err, "failed to initialize components")
 	}
-	
+
 	// Start all components in correct order
 	if err := o.startComponents(); err != nil {
 		return errors.Wrap(err, "failed to start components")
 	}
-	
+
 	o.logger.Info("=== Heimdal Sensor Running ===")
-	
+
 	// Set up signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
-	
+
 	// Wait for shutdown signal
 	sig := <-sigChan
 	o.logger.Info("Received signal: %v", sig)
-	
+
 	// Perform graceful shutdown
 	return o.shutdown()
 }
@@ -136,7 +136,7 @@ func (o *Orchestrator) Run() error {
 // initializeComponents creates all component instances with proper dependencies
 func (o *Orchestrator) initializeComponents() error {
 	o.logger.Info("Initializing components...")
-	
+
 	// 1. Initialize Database
 	o.logger.Info("Initializing database at %s", o.config.Database.Path)
 	var db *database.DatabaseManager
@@ -149,21 +149,21 @@ func (o *Orchestrator) initializeComponents() error {
 		return errors.Wrap(err, "failed to initialize database")
 	}
 	o.db = db
-	
+
 	// 2. Initialize Network Auto-Config (blocking until network detected)
 	o.logger.Info("Initializing network auto-configuration...")
 	o.netConfig = netconfig.NewAutoConfig()
 	if err := o.netConfig.DetectNetwork(); err != nil {
 		return errors.Wrap(err, "failed to detect network")
 	}
-	
+
 	netCfg := o.netConfig.GetConfig()
 	if netCfg == nil {
 		return fmt.Errorf("network configuration is nil after detection")
 	}
 	o.logger.Info("Network detected: interface=%s, ip=%s, gateway=%s, cidr=%s",
 		netCfg.Interface, netCfg.LocalIP, netCfg.Gateway, netCfg.CIDR)
-	
+
 	// 3. Initialize Device Discovery Scanner
 	o.logger.Info("Initializing device discovery scanner...")
 	scanInterval := time.Duration(o.config.Discovery.ARPScanInterval) * time.Second
@@ -175,10 +175,12 @@ func (o *Orchestrator) initializeComponents() error {
 		scanInterval,
 		o.config.Discovery.MDNSEnabled,
 		inactiveTimeout,
+		nil,
+		nil,
 	)
 	o.components = append(o.components, o.scanner)
 	o.initComponentHealth(o.scanner.Name())
-	
+
 	// 4. Initialize Traffic Interceptor (ARP Spoofer)
 	if o.config.Interceptor.Enabled {
 		o.logger.Info("Initializing traffic interceptor (ARP spoofer)...")
@@ -194,7 +196,7 @@ func (o *Orchestrator) initializeComponents() error {
 	} else {
 		o.logger.Info("Traffic interceptor is disabled in configuration")
 	}
-	
+
 	// 5. Initialize Packet Analyzer (Sniffer)
 	o.logger.Info("Initializing packet analyzer...")
 	sniffer, err := analyzer.NewSniffer(netCfg, o.packetChan)
@@ -204,7 +206,7 @@ func (o *Orchestrator) initializeComponents() error {
 	o.sniffer = sniffer
 	o.components = append(o.components, o.sniffer)
 	o.initComponentHealth(o.sniffer.Name())
-	
+
 	// 6. Initialize Behavioral Profiler
 	o.logger.Info("Initializing behavioral profiler...")
 	persistInterval := time.Duration(o.config.Profiler.PersistInterval) * time.Second
@@ -215,7 +217,7 @@ func (o *Orchestrator) initializeComponents() error {
 	o.profilerComp = profilerComp
 	o.components = append(o.components, o.profilerComp)
 	o.initComponentHealth(o.profilerComp.Name())
-	
+
 	// 7. Initialize Web API Server
 	o.logger.Info("Initializing web API server...")
 	o.apiServer = api.NewAPIServer(
@@ -226,7 +228,7 @@ func (o *Orchestrator) initializeComponents() error {
 	)
 	// Note: API server has a different Start signature, we'll handle it specially
 	o.initComponentHealth(o.apiServer.Name())
-	
+
 	// 8. Initialize Cloud Connector (if enabled)
 	if o.config.Cloud.Enabled {
 		o.logger.Info("Initializing cloud connector...")
@@ -252,7 +254,7 @@ func (o *Orchestrator) initializeComponents() error {
 			default:
 				o.logger.Warn("Unknown cloud provider: %s", o.config.Cloud.Provider)
 			}
-			
+
 			if connector != nil {
 				cloudOrch.SetConnector(connector)
 				o.cloudOrch = cloudOrch
@@ -263,7 +265,7 @@ func (o *Orchestrator) initializeComponents() error {
 	} else {
 		o.logger.Info("Cloud connector is disabled in configuration")
 	}
-	
+
 	o.logger.Info("Initialized %d components successfully", len(o.components))
 	return nil
 }
@@ -271,28 +273,28 @@ func (o *Orchestrator) initializeComponents() error {
 // startComponents launches all components as goroutines in the correct order
 func (o *Orchestrator) startComponents() error {
 	o.logger.Info("Starting components...")
-	
+
 	// Start components in order (excluding API server which needs special handling)
 	for _, component := range o.components {
 		// Skip API server - we'll start it separately
 		if component.Name() == "APIServer" {
 			continue
 		}
-		
+
 		o.logger.Info("Starting component: %s", component.Name())
 		if err := o.startComponentWithRecovery(component); err != nil {
 			return errors.Wrap(err, "failed to start component %s", component.Name())
 		}
-		
+
 		// Mark as running
 		o.markComponentRunning(component.Name(), true)
 	}
-	
+
 	// Start API server with context (special case)
 	if o.apiServer != nil {
 		o.logger.Info("Starting component: %s", o.apiServer.Name())
 		ctx, cancel := context.WithCancel(context.Background())
-		
+
 		// Store cancel function for shutdown
 		o.wg.Add(1)
 		go func() {
@@ -301,20 +303,20 @@ func (o *Orchestrator) startComponents() error {
 				o.logger.Error("API server error: %v", err)
 			}
 		}()
-		
+
 		// Store cancel function for later
 		go func() {
 			<-o.shutdownCh
 			cancel()
 		}()
-		
+
 		o.markComponentRunning(o.apiServer.Name(), true)
 	}
-	
+
 	// Start component health monitoring
 	o.wg.Add(1)
 	go o.healthMonitorLoop()
-	
+
 	o.logger.Info("All %d components started successfully", len(o.components)+1) // +1 for API server
 	return nil
 }
@@ -324,14 +326,14 @@ func (o *Orchestrator) startComponentWithRecovery(component Component) error {
 	if err := component.Start(); err != nil {
 		return err
 	}
-	
+
 	// Launch recovery goroutine
 	o.wg.Add(1)
 	go func() {
 		defer o.wg.Done()
 		o.componentRecoveryLoop(component)
 	}()
-	
+
 	return nil
 }
 
@@ -340,7 +342,7 @@ func (o *Orchestrator) componentRecoveryLoop(component Component) {
 	// This is a placeholder for future enhancement
 	// In a full implementation, we would monitor component health
 	// and restart failed components with exponential backoff
-	
+
 	// For now, just wait for shutdown signal
 	<-o.shutdownCh
 }
@@ -348,10 +350,10 @@ func (o *Orchestrator) componentRecoveryLoop(component Component) {
 // healthMonitorLoop periodically checks component health and restarts failed components
 func (o *Orchestrator) healthMonitorLoop() {
 	defer o.wg.Done()
-	
+
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-o.shutdownCh:
@@ -366,21 +368,21 @@ func (o *Orchestrator) healthMonitorLoop() {
 func (o *Orchestrator) checkComponentHealth() {
 	o.healthMu.RLock()
 	defer o.healthMu.RUnlock()
-	
+
 	now := time.Now()
 	for name, health := range o.componentHealth {
 		if !health.isRunning {
 			o.logger.Warn("Component %s is not running", name)
 			continue
 		}
-		
+
 		// Check if we're in a new hour window
 		if now.Sub(health.restartWindow) > time.Hour {
 			// Reset restart count for new window
 			health.restartCount = 0
 			health.restartWindow = now
 		}
-		
+
 		// Log health status
 		if health.restartCount > 0 {
 			o.logger.Debug("Component %s health: running (restarts in last hour: %d/5)",
@@ -392,10 +394,10 @@ func (o *Orchestrator) checkComponentHealth() {
 // restartComponent attempts to restart a failed component
 func (o *Orchestrator) restartComponent(component Component) error {
 	name := component.Name()
-	
+
 	o.healthMu.Lock()
 	health := o.componentHealth[name]
-	
+
 	// Check if we've exceeded restart limit
 	now := time.Now()
 	if now.Sub(health.restartWindow) > time.Hour {
@@ -403,33 +405,33 @@ func (o *Orchestrator) restartComponent(component Component) error {
 		health.restartCount = 0
 		health.restartWindow = now
 	}
-	
+
 	if health.restartCount >= 5 {
 		o.healthMu.Unlock()
 		return fmt.Errorf("component %s has exceeded restart limit (5 restarts/hour)", name)
 	}
-	
+
 	health.restartCount++
 	health.lastRestart = now
 	o.healthMu.Unlock()
-	
+
 	o.logger.Warn("Restarting component %s (attempt %d/5)", name, health.restartCount)
-	
+
 	// Stop the component
 	if err := component.Stop(); err != nil {
 		o.logger.Warn("Error stopping component %s: %v", name, err)
 	}
-	
+
 	// Wait with exponential backoff before restarting
 	backoffDelay := time.Second * time.Duration(health.restartCount)
 	o.logger.Debug("Waiting %v before restarting %s", backoffDelay, name)
 	time.Sleep(backoffDelay)
-	
+
 	// Start the component
 	if err := component.Start(); err != nil {
 		return errors.Wrap(err, "failed to restart component %s", name)
 	}
-	
+
 	o.logger.Info("Component %s restarted successfully", name)
 	return nil
 }
@@ -438,7 +440,7 @@ func (o *Orchestrator) restartComponent(component Component) error {
 func (o *Orchestrator) initComponentHealth(name string) {
 	o.healthMu.Lock()
 	defer o.healthMu.Unlock()
-	
+
 	o.componentHealth[name] = &componentHealthInfo{
 		name:          name,
 		restartCount:  0,
@@ -451,7 +453,7 @@ func (o *Orchestrator) initComponentHealth(name string) {
 func (o *Orchestrator) markComponentRunning(name string, running bool) {
 	o.healthMu.Lock()
 	defer o.healthMu.Unlock()
-	
+
 	if health, exists := o.componentHealth[name]; exists {
 		health.isRunning = running
 	}
@@ -460,23 +462,23 @@ func (o *Orchestrator) markComponentRunning(name string, running bool) {
 // shutdown performs graceful shutdown of all components
 func (o *Orchestrator) shutdown() error {
 	o.logger.Info("=== Heimdal Sensor Shutting Down ===")
-	
+
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	
+
 	// Signal all goroutines to stop
 	close(o.shutdownCh)
-	
+
 	// Create a timeout context for shutdown
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	// Stop components in reverse order
 	o.logger.Info("Stopping components in reverse order...")
-	
+
 	// Stop in reverse order of startup
 	componentsToStop := make([]Component, 0)
-	
+
 	// Add API server first (stop it first)
 	if o.apiServer != nil {
 		o.logger.Info("Stopping component: %s", o.apiServer.Name())
@@ -485,12 +487,12 @@ func (o *Orchestrator) shutdown() error {
 		}
 		o.markComponentRunning(o.apiServer.Name(), false)
 	}
-	
+
 	// Reverse the components list
 	for i := len(o.components) - 1; i >= 0; i-- {
 		componentsToStop = append(componentsToStop, o.components[i])
 	}
-	
+
 	// Stop each component
 	for _, component := range componentsToStop {
 		o.logger.Info("Stopping component: %s", component.Name())
@@ -499,12 +501,12 @@ func (o *Orchestrator) shutdown() error {
 		}
 		o.markComponentRunning(component.Name(), false)
 	}
-	
+
 	// Close communication channels
 	o.logger.Info("Closing communication channels...")
 	close(o.deviceChan)
 	close(o.packetChan)
-	
+
 	// Wait for all goroutines to finish with timeout
 	o.logger.Info("Waiting for goroutines to finish...")
 	done := make(chan struct{})
@@ -512,20 +514,20 @@ func (o *Orchestrator) shutdown() error {
 		o.wg.Wait()
 		close(done)
 	}()
-	
+
 	select {
 	case <-done:
 		o.logger.Info("All goroutines finished")
 	case <-shutdownCtx.Done():
 		o.logger.Warn("Shutdown timeout reached, forcing exit")
 	}
-	
+
 	// Close database
 	if o.db != nil {
 		o.logger.Info("Closing database...")
 		errors.SafeClose(o.db, "database")
 	}
-	
+
 	o.logger.Info("=== Heimdal Sensor Stopped ===")
 	return nil
 }
@@ -534,12 +536,12 @@ func (o *Orchestrator) shutdown() error {
 func (o *Orchestrator) GetComponentStatus() map[string]bool {
 	o.healthMu.RLock()
 	defer o.healthMu.RUnlock()
-	
+
 	status := make(map[string]bool)
 	for name, health := range o.componentHealth {
 		status[name] = health.isRunning
 	}
-	
+
 	return status
 }
 
@@ -547,11 +549,11 @@ func (o *Orchestrator) GetComponentStatus() map[string]bool {
 func (o *Orchestrator) GetComponentHealth() map[string]componentHealthInfo {
 	o.healthMu.RLock()
 	defer o.healthMu.RUnlock()
-	
+
 	health := make(map[string]componentHealthInfo)
 	for name, info := range o.componentHealth {
 		health[name] = *info
 	}
-	
+
 	return health
 }

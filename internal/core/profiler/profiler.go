@@ -182,12 +182,13 @@ func (p *Profiler) updateProfile(packetInfo packet.PacketInfo) {
 	if !exists {
 		// Create new profile
 		profile = &database.BehavioralProfile{
-			MAC:          packetInfo.SrcMAC,
-			Destinations: make(map[string]*database.DestInfo),
-			Ports:        make(map[uint16]int),
-			Protocols:    make(map[string]int),
-			FirstSeen:    packetInfo.Timestamp,
-			LastSeen:     packetInfo.Timestamp,
+			MAC:                packetInfo.SrcMAC,
+			Destinations:       make(map[string]*database.DestInfo),
+			Ports:              make(map[uint16]int),
+			Protocols:          make(map[string]int),
+			FirstSeen:          packetInfo.Timestamp,
+			LastSeen:           packetInfo.Timestamp,
+			LocalCommunication: make(map[string]int64),
 		}
 		p.profiles[packetInfo.SrcMAC] = profile
 	}
@@ -230,6 +231,15 @@ func (p *Profiler) updateProfile(packetInfo packet.PacketInfo) {
 	hour := packetInfo.Timestamp.Hour()
 	if hour >= 0 && hour < 24 {
 		profile.HourlyActivity[hour]++
+	}
+
+	// Track local network communication (device-to-device)
+	// If destination MAC is available, it's a local device
+	if packetInfo.DstMAC != "" && packetInfo.DstMAC != packetInfo.SrcMAC {
+		if profile.LocalCommunication == nil {
+			profile.LocalCommunication = make(map[string]int64)
+		}
+		profile.LocalCommunication[packetInfo.DstMAC]++
 	}
 }
 
@@ -315,6 +325,11 @@ func (p *Profiler) persistProfiles() error {
 		ops = append(ops, op)
 	}
 
+	// Calculate baselines before persisting
+	for _, profile := range profiles {
+		p.calculateBaseline(profile)
+	}
+
 	// Execute batch operation
 	if len(ops) > 0 {
 		err := p.storage.Batch(ops)
@@ -362,4 +377,110 @@ func (p *Profiler) ClearProfiles() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.profiles = make(map[string]*database.BehavioralProfile)
+}
+
+// calculateBaseline calculates rolling baseline metrics for a profile
+func (p *Profiler) calculateBaseline(profile *database.BehavioralProfile) {
+	if profile == nil {
+		return
+	}
+
+	// Initialize baseline if it doesn't exist
+	if profile.Baseline == nil {
+		profile.Baseline = &database.ProfileBaseline{
+			ProtocolDistribution: make(map[string]float64),
+			SampleCount:          0,
+		}
+	}
+
+	baseline := profile.Baseline
+	now := time.Now()
+
+	// Calculate time since first seen (in hours)
+	hoursSinceFirstSeen := now.Sub(profile.FirstSeen).Hours()
+	if hoursSinceFirstSeen < 1 {
+		// Not enough data yet
+		return
+	}
+
+	// Calculate packets per hour
+	packetsPerHour := float64(profile.TotalPackets) / hoursSinceFirstSeen
+
+	// Update rolling average using exponential moving average (EMA)
+	// Alpha = 0.2 gives more weight to recent data
+	alpha := 0.2
+	if baseline.SampleCount == 0 {
+		baseline.AvgPacketsPerHour = packetsPerHour
+	} else {
+		baseline.AvgPacketsPerHour = alpha*packetsPerHour + (1-alpha)*baseline.AvgPacketsPerHour
+	}
+
+	// Calculate standard deviation (simplified incremental calculation)
+	if baseline.SampleCount > 0 {
+		diff := packetsPerHour - baseline.AvgPacketsPerHour
+		baseline.StdDevPacketsPerHour = alpha*diff*diff + (1-alpha)*baseline.StdDevPacketsPerHour
+	}
+
+	// Calculate packets per day
+	daysSinceFirstSeen := hoursSinceFirstSeen / 24.0
+	if daysSinceFirstSeen >= 1 {
+		packetsPerDay := float64(profile.TotalPackets) / daysSinceFirstSeen
+		if baseline.SampleCount == 0 {
+			baseline.AvgPacketsPerDay = packetsPerDay
+		} else {
+			baseline.AvgPacketsPerDay = alpha*packetsPerDay + (1-alpha)*baseline.AvgPacketsPerDay
+		}
+
+		if baseline.SampleCount > 0 {
+			diff := packetsPerDay - baseline.AvgPacketsPerDay
+			baseline.StdDevPacketsPerDay = alpha*diff*diff + (1-alpha)*baseline.StdDevPacketsPerDay
+		}
+	}
+
+	// Calculate unique destinations baseline
+	uniqueDests := float64(len(profile.Destinations))
+	if baseline.SampleCount == 0 {
+		baseline.AvgUniqueDestinations = uniqueDests
+	} else {
+		baseline.AvgUniqueDestinations = alpha*uniqueDests + (1-alpha)*baseline.AvgUniqueDestinations
+	}
+
+	if baseline.SampleCount > 0 {
+		diff := uniqueDests - baseline.AvgUniqueDestinations
+		baseline.StdDevDestinations = alpha*diff*diff + (1-alpha)*baseline.StdDevDestinations
+	}
+
+	// Calculate unique ports baseline
+	uniquePorts := float64(len(profile.Ports))
+	if baseline.SampleCount == 0 {
+		baseline.AvgUniquePorts = uniquePorts
+	} else {
+		baseline.AvgUniquePorts = alpha*uniquePorts + (1-alpha)*baseline.AvgUniquePorts
+	}
+
+	if baseline.SampleCount > 0 {
+		diff := uniquePorts - baseline.AvgUniquePorts
+		baseline.StdDevPorts = alpha*diff*diff + (1-alpha)*baseline.StdDevPorts
+	}
+
+	// Calculate protocol distribution baseline
+	totalProtocolPackets := int64(0)
+	for _, count := range profile.Protocols {
+		totalProtocolPackets += int64(count)
+	}
+
+	if totalProtocolPackets > 0 {
+		for protocol, count := range profile.Protocols {
+			percentage := float64(count) / float64(totalProtocolPackets)
+			if _, exists := baseline.ProtocolDistribution[protocol]; !exists {
+				baseline.ProtocolDistribution[protocol] = percentage
+			} else {
+				baseline.ProtocolDistribution[protocol] = alpha*percentage + (1-alpha)*baseline.ProtocolDistribution[protocol]
+			}
+		}
+	}
+
+	// Update metadata
+	baseline.LastCalculated = now
+	baseline.SampleCount++
 }

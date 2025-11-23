@@ -48,7 +48,7 @@ type HardwareOrchestrator struct {
 	logger     *logger.Logger
 
 	// Platform interfaces
-	packetCapture   platform.PacketCaptureProvider
+	packetCapture    platform.PacketCaptureProvider
 	systemIntegrator platform.SystemIntegrator
 
 	// Component instances
@@ -61,9 +61,9 @@ type HardwareOrchestrator struct {
 	cloudOrch    *cloud.Orchestrator
 
 	// Communication channels
-	deviceChan       chan *database.Device
-	packetChan       chan packet.PacketInfo       // For analyzer output
-	profilerChan     chan analyzer.PacketInfo     // For profiler input (old format)
+	deviceChan   chan *database.Device
+	packetChan   chan packet.PacketInfo   // For analyzer output
+	profilerChan chan analyzer.PacketInfo // For profiler input (old format)
 
 	// Lifecycle management
 	shutdownCh chan struct{}
@@ -181,6 +181,8 @@ func (o *HardwareOrchestrator) initializeComponents() error {
 		scanInterval,
 		o.config.Discovery.MDNSEnabled,
 		inactiveTimeout,
+		nil,
+		nil,
 	)
 	o.components = append(o.components, o.scanner)
 	o.initComponentHealth(o.scanner.Name())
@@ -208,12 +210,12 @@ func (o *HardwareOrchestrator) initializeComponents() error {
 		return errors.Wrap(err, "failed to initialize packet analyzer")
 	}
 	o.analyzer = analyzer
-	
+
 	// Create an adapter component that wraps the analyzer
 	analyzerComponent := &analyzerComponent{
-		analyzer:   analyzer,
-		netConfig:  netCfg,
-		bpfFilter:  "not broadcast and not multicast",
+		analyzer:  analyzer,
+		netConfig: netCfg,
+		bpfFilter: "not broadcast and not multicast",
 	}
 	o.components = append(o.components, analyzerComponent)
 	o.initComponentHealth(analyzerComponent.Name())
@@ -231,7 +233,7 @@ func (o *HardwareOrchestrator) initializeComponents() error {
 	o.profilerComp = profilerComp
 	o.components = append(o.components, o.profilerComp)
 	o.initComponentHealth(o.profilerComp.Name())
-	
+
 	// Start adapter goroutine to convert packet.PacketInfo to analyzer.PacketInfo
 	o.wg.Add(1)
 	go o.packetInfoAdapter()
@@ -514,7 +516,6 @@ func (o *HardwareOrchestrator) GetComponentStatus() map[string]bool {
 
 	return status
 }
-
 
 // packetInfoAdapter converts packet.PacketInfo to analyzer.PacketInfo
 // This is a temporary adapter until the profiler is migrated to use the core types

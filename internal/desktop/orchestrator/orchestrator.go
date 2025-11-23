@@ -15,14 +15,17 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mosiko1234/heimdal/sensor/internal/cloud"
 	"github.com/mosiko1234/heimdal/sensor/internal/core/detection"
 	"github.com/mosiko1234/heimdal/sensor/internal/core/packet"
 	"github.com/mosiko1234/heimdal/sensor/internal/core/profiler"
+	"github.com/mosiko1234/heimdal/sensor/internal/database"
 	"github.com/mosiko1234/heimdal/sensor/internal/desktop/config"
 	"github.com/mosiko1234/heimdal/sensor/internal/desktop/featuregate"
 	"github.com/mosiko1234/heimdal/sensor/internal/desktop/interceptor"
 	"github.com/mosiko1234/heimdal/sensor/internal/desktop/systray"
 	"github.com/mosiko1234/heimdal/sensor/internal/desktop/visualizer"
+	"github.com/mosiko1234/heimdal/sensor/internal/discovery"
 	"github.com/mosiko1234/heimdal/sensor/internal/errors"
 	"github.com/mosiko1234/heimdal/sensor/internal/logger"
 	"github.com/mosiko1234/heimdal/sensor/internal/platform"
@@ -47,13 +50,19 @@ type DesktopOrchestrator struct {
 	storage          platform.StorageProvider
 
 	// Component instances
-	featureGate     *featuregate.FeatureGate
-	trafficInterceptor *interceptor.DesktopTrafficInterceptor
-	analyzer        *packet.Analyzer
-	profilerComp    *profiler.Profiler
-	detector        *detection.Detector
-	visualizerComp  *visualizer.Visualizer
-	systemTray      *systray.SystemTray
+	featureGate         *featuregate.FeatureGate
+	deviceScanner       *discovery.Scanner
+	deviceStore         database.DeviceStore
+	trafficInterceptor  *interceptor.DesktopTrafficInterceptor
+	analyzer            *packet.Analyzer
+	profilerComp        *profiler.Profiler
+	detector            *detection.Detector
+	visualizerComp      *visualizer.Visualizer
+	systemTray          *systray.SystemTray
+	cloudOrch           *cloud.Orchestrator
+	discoveryStatusCh   chan discovery.StatusUpdate
+	lastDiscoveryStatus string
+	lastDiscoveryLevel  discovery.StatusLevel
 
 	// Communication channels
 	packetChan  chan packet.PacketInfo
@@ -100,17 +109,18 @@ func NewDesktopOrchestrator(
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &DesktopOrchestrator{
-		config:           cfg,
-		packetCapture:    packetCapture,
-		systemIntegrator: systemIntegrator,
-		storage:          storage,
-		logger:           logger.NewComponentLogger("DesktopOrchestrator"),
-		ctx:              ctx,
-		cancel:           cancel,
-		packetChan:       make(chan packet.PacketInfo, 1000),
-		anomalyChan:      make(chan *detection.Anomaly, 100),
-		shutdownCh:       make(chan struct{}),
-		componentHealth:  make(map[string]*componentHealthInfo),
+		config:            cfg,
+		packetCapture:     packetCapture,
+		systemIntegrator:  systemIntegrator,
+		storage:           storage,
+		logger:            logger.NewComponentLogger("DesktopOrchestrator"),
+		ctx:               ctx,
+		cancel:            cancel,
+		packetChan:        make(chan packet.PacketInfo, 1000),
+		anomalyChan:       make(chan *detection.Anomaly, 100),
+		shutdownCh:        make(chan struct{}),
+		componentHealth:   make(map[string]*componentHealthInfo),
+		discoveryStatusCh: make(chan discovery.StatusUpdate, 16),
 	}, nil
 }
 
@@ -168,7 +178,12 @@ func (o *DesktopOrchestrator) initializeComponents() error {
 	fg := featuregate.New(featuregate.Tier(o.config.FeatureGate.Tier), o.config.FeatureGate.LicenseKey, validator)
 	o.featureGate = fg
 
-	// 3. Initialize Packet Analyzer
+	// 3. Initialize Device Discovery (network + scanner)
+	if err := o.initializeDeviceDiscovery(); err != nil {
+		return errors.Wrap(err, "failed to initialize device discovery")
+	}
+
+	// 4. Initialize Packet Analyzer
 	o.logger.Info("Initializing packet analyzer with platform interface...")
 	analyzer, err := packet.NewAnalyzer(o.packetCapture, o.packetChan, nil)
 	if err != nil {
@@ -176,7 +191,7 @@ func (o *DesktopOrchestrator) initializeComponents() error {
 	}
 	o.analyzer = analyzer
 
-	// 4. Initialize Behavioral Profiler
+	// 5. Initialize Behavioral Profiler
 	o.logger.Info("Initializing behavioral profiler...")
 	profilerCfg := profiler.DefaultConfig()
 	profilerComp, err := profiler.NewProfiler(o.storage, o.packetChan, profilerCfg)
@@ -186,7 +201,7 @@ func (o *DesktopOrchestrator) initializeComponents() error {
 	o.profilerComp = profilerComp
 	o.initComponentHealth("Profiler")
 
-	// 5. Initialize Anomaly Detector
+	// 6. Initialize Anomaly Detector
 	o.logger.Info("Initializing anomaly detector...")
 	detectorCfg := &detection.Config{
 		Sensitivity:       o.config.Detection.Sensitivity,
@@ -199,7 +214,7 @@ func (o *DesktopOrchestrator) initializeComponents() error {
 	o.detector = detector
 	o.initComponentHealth("Detector")
 
-	// 6. Initialize Traffic Interceptor (if enabled and tier allows)
+	// 7. Initialize Traffic Interceptor (if enabled and tier allows)
 	if o.config.Interceptor.Enabled {
 		if o.featureGate.CanAccess(featuregate.FeatureTrafficBlocking) {
 			o.logger.Info("Initializing traffic interceptor...")
@@ -224,7 +239,7 @@ func (o *DesktopOrchestrator) initializeComponents() error {
 		o.logger.Info("Traffic interceptor is disabled in configuration")
 	}
 
-	// 7. Initialize Local Visualizer
+	// 8. Initialize Local Visualizer
 	o.logger.Info("Initializing local visualizer on port %d", o.config.Visualizer.Port)
 	visualizerCfg := &visualizer.Config{
 		Port:        o.config.Visualizer.Port,
@@ -238,11 +253,22 @@ func (o *DesktopOrchestrator) initializeComponents() error {
 	o.visualizerComp = visualizerComp
 	o.initComponentHealth("Visualizer")
 
-	// 8. Initialize System Tray
+	// 9. Initialize System Tray
 	o.logger.Info("Initializing system tray...")
 	systemTray := NewPlatformSystemTray(o.visualizerComp, o.config.SystemTray.AutoStart)
 	o.systemTray = systemTray
 	o.initComponentHealth("SystemTray")
+
+	// 10. Initialize Cloud Connector (if enabled)
+	if o.config.Cloud.Enabled {
+		o.logger.Info("Initializing cloud connector...")
+		if err := o.initializeCloudConnector(); err != nil {
+			o.logger.Warn("Failed to initialize cloud connector: %v", err)
+			o.logger.Info("Local operations will continue without cloud connectivity")
+		}
+	} else {
+		o.logger.Info("Cloud connector is disabled in configuration")
+	}
 
 	o.logger.Info("Initialized components successfully")
 	return nil
@@ -251,6 +277,15 @@ func (o *DesktopOrchestrator) initializeComponents() error {
 // startComponents launches all components as goroutines in the correct order
 func (o *DesktopOrchestrator) startComponents() error {
 	o.logger.Info("Starting components...")
+
+	// Start device discovery scanner
+	if o.deviceScanner != nil {
+		o.logger.Info("Starting device discovery scanner...")
+		if err := o.deviceScanner.Start(); err != nil {
+			return errors.Wrap(err, "failed to start device discovery scanner")
+		}
+		o.markComponentRunning(o.deviceScanner.Name(), true)
+	}
 
 	// 1. Start Packet Analyzer
 	o.logger.Info("Starting packet analyzer on interface: %s", o.config.Network.Interface)
@@ -301,11 +336,21 @@ func (o *DesktopOrchestrator) startComponents() error {
 		}
 	}
 
-	// 7. Start event notification handler
+	// 7. Start Cloud Connector (if initialized)
+	if o.cloudOrch != nil {
+		o.logger.Info("Starting cloud connector...")
+		if err := o.cloudOrch.Start(); err != nil {
+			o.logger.Warn("Failed to start cloud connector: %v", err)
+		} else {
+			o.markComponentRunning(o.cloudOrch.Name(), true)
+		}
+	}
+
+	// 8. Start event notification handler
 	o.wg.Add(1)
 	go o.eventNotificationLoop()
 
-	// 8. Start component health monitoring
+	// 9. Start component health monitoring
 	o.wg.Add(1)
 	go o.healthMonitorLoop()
 
@@ -418,6 +463,115 @@ func (o *DesktopOrchestrator) checkComponentHealth() {
 	}
 }
 
+func (o *DesktopOrchestrator) initializeDeviceDiscovery() error {
+	if o.deviceStore == nil {
+		store, err := newStorageDeviceStore(o.storage)
+		if err != nil {
+			return err
+		}
+		o.deviceStore = store
+	}
+
+	provider, err := o.buildNetworkConfigProvider()
+	if err != nil {
+		return err
+	}
+
+	scanInterval := time.Duration(o.config.Discovery.ScanInterval) * time.Second
+	inactiveTimeout := time.Duration(o.config.Discovery.InactiveTimeout) * time.Minute
+
+	statusSink := o.discoveryStatusSink()
+	o.deviceScanner = discovery.NewScanner(provider, o.deviceStore, nil, scanInterval, o.config.Discovery.MDNSEnabled, inactiveTimeout, nil, statusSink)
+	o.initComponentHealth(o.deviceScanner.Name())
+	o.startDiscoveryStatusMonitor()
+
+	o.logger.Info("Device discovery initialized (interface=%s, scan_interval=%v, mdns=%v)",
+		o.config.Network.Interface, scanInterval, o.config.Discovery.MDNSEnabled)
+	return nil
+}
+
+func (o *DesktopOrchestrator) initializeCloudConnector() error {
+	// For now, cloud connector is a stub for desktop
+	// The desktop agent will send telemetry data when cloud is enabled
+	// Full implementation requires adapting the cloud.Orchestrator to work with
+	// desktop config types or creating a unified config interface
+	
+	o.logger.Info("Cloud connector initialization deferred (provider: %s)", o.config.Cloud.Provider)
+	o.logger.Info("Telemetry will be sent via stub connector for free tier")
+	
+	// TODO: Implement full cloud connector for desktop
+	// This requires either:
+	// 1. Creating adapter types to convert desktop.config types to config types
+	// 2. Refactoring cloud package to use interface-based config
+	// 3. Creating a separate desktop cloud connector package
+	
+	return nil
+}
+
+func (o *DesktopOrchestrator) discoveryStatusSink() discovery.StatusSink {
+	if o.discoveryStatusCh == nil {
+		return nil
+	}
+
+	return func(update discovery.StatusUpdate) {
+		select {
+		case o.discoveryStatusCh <- update:
+		default:
+			<-o.discoveryStatusCh
+			o.discoveryStatusCh <- update
+		}
+	}
+}
+
+func (o *DesktopOrchestrator) startDiscoveryStatusMonitor() {
+	if o.discoveryStatusCh == nil {
+		return
+	}
+
+	o.wg.Add(1)
+	go func() {
+		defer o.wg.Done()
+		for {
+			select {
+			case <-o.shutdownCh:
+				return
+			case update := <-o.discoveryStatusCh:
+				o.handleDiscoveryStatus(update)
+			}
+		}
+	}()
+}
+
+func (o *DesktopOrchestrator) handleDiscoveryStatus(update discovery.StatusUpdate) {
+	if update.Message == "" {
+		return
+	}
+
+	if update.Message == o.lastDiscoveryStatus && update.Level == o.lastDiscoveryLevel {
+		return
+	}
+
+	o.lastDiscoveryStatus = update.Message
+	o.lastDiscoveryLevel = update.Level
+
+	o.logger.Info("Discovery status update: %s", update.Message)
+
+	if o.systemTray != nil {
+		label := fmt.Sprintf("Discovery: %s", update.Message)
+		menu := []*systray.MenuItem{
+			{Label: label, Enabled: false},
+		}
+		(*o.systemTray).SetMenu(menu)
+
+		switch update.Level {
+		case discovery.StatusLevelWarning:
+			(*o.systemTray).ShowNotification("Discovery warning", update.Message, systray.NotificationWarning)
+		case discovery.StatusLevelError:
+			(*o.systemTray).ShowNotification("Discovery error", update.Message, systray.NotificationError)
+		}
+	}
+}
+
 // initComponentHealth initializes health tracking for a component
 func (o *DesktopOrchestrator) initComponentHealth(name string) {
 	o.healthMu.Lock()
@@ -503,6 +657,24 @@ func (o *DesktopOrchestrator) shutdown() error {
 			o.logger.Warn("Error stopping packet analyzer: %v", err)
 		}
 		o.markComponentRunning("PacketAnalyzer", false)
+	}
+
+	// 7. Stop Cloud Connector
+	if o.cloudOrch != nil {
+		o.logger.Info("Stopping cloud connector...")
+		if err := o.cloudOrch.Stop(); err != nil {
+			o.logger.Warn("Error stopping cloud connector: %v", err)
+		}
+		o.markComponentRunning(o.cloudOrch.Name(), false)
+	}
+
+	// 8. Stop Device Discovery
+	if o.deviceScanner != nil {
+		o.logger.Info("Stopping device discovery scanner...")
+		if err := o.deviceScanner.Stop(); err != nil {
+			o.logger.Warn("Error stopping device discovery scanner: %v", err)
+		}
+		o.markComponentRunning(o.deviceScanner.Name(), false)
 	}
 
 	// Close packet capture
@@ -601,7 +773,7 @@ func NewPlatformSystemTray(visualizer *visualizer.Visualizer, autoStart bool) *s
 		IconPath:    "",
 		TooltipText: "Heimdal Network Monitor",
 	}
-	
+
 	st := systray.NewPlatformSystemTray(config)
 	return &st
 }

@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Heimdal Network Sensor Dashboard</title>
     <link rel="stylesheet" href="styles.css">
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        #networkTopology {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -31,10 +41,60 @@
         </header>
 
         <main>
+            <section class="topology-section">
+                <div class="section-header">
+                    <h2>🗺️ Network Topology</h2>
+                    <div class="topology-controls">
+                        <button class="btn-topology" onclick="toggleTopologyView('graph')" id="btnGraphView">Graph View</button>
+                        <button class="btn-topology" onclick="toggleTopologyView('list')" id="btnListView">List View</button>
+                        <button class="btn-topology" onclick="refreshTopology()">🔄 Refresh</button>
+                    </div>
+                </div>
+                
+                <div id="networkTopology"></div>
+                
+                <div class="topology-legend">
+                    <span class="legend-item">📱 Phone</span>
+                    <span class="legend-item">💻 Computer</span>
+                    <span class="legend-item">📡 Router</span>
+                    <span class="legend-item">🖨️ Printer</span>
+                    <span class="legend-item">📺 TV</span>
+                    <span class="legend-item">🔌 IoT</span>
+                </div>
+            </section>
+
+            <section class="anomalies-section" id="anomaliesSection" style="display: none;">
+                <div class="section-header">
+                    <h2>⚠️ Recent Anomalies</h2>
+                    <button class="close-btn" onclick="closeAnomalies()">✕</button>
+                </div>
+                
+                <div class="anomalies-container" id="anomaliesContainer">
+                    <p class="empty">No anomalies detected</p>
+                </div>
+            </section>
+
             <section class="devices-section">
                 <div class="section-header">
                     <h2>Discovered Devices</h2>
-                    <span class="refresh-indicator" id="refreshIndicator">●</span>
+                    <div class="header-controls">
+                        <button class="btn-filter" onclick="toggleFilters()">🔍 Filter</button>
+                        <span class="refresh-indicator" id="refreshIndicator">●</span>
+                    </div>
+                </div>
+                
+                <div class="filter-bar" id="filterBar" style="display: none;">
+                    <select id="deviceTypeFilter" onchange="applyFilters()">
+                        <option value="">All Device Types</option>
+                        <option value="phone">📱 Phones</option>
+                        <option value="computer">💻 Computers</option>
+                        <option value="router">📡 Routers</option>
+                        <option value="printer">🖨️ Printers</option>
+                        <option value="tv">📺 TVs</option>
+                        <option value="iot">🔌 IoT Devices</option>
+                        <option value="unknown">❓ Unknown</option>
+                    </select>
+                    <input type="text" id="searchInput" placeholder="Search by name, IP, MAC, or vendor..." oninput="applyFilters()">
                 </div>
                 
                 <div class="table-container">

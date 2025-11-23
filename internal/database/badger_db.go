@@ -39,26 +39,63 @@ const (
 
 // Device represents a discovered network device
 type Device struct {
-	MAC       string    `json:"mac"`
-	IP        string    `json:"ip"`
-	Name      string    `json:"name"`
-	Vendor    string    `json:"vendor"`
-	FirstSeen time.Time `json:"first_seen"`
-	LastSeen  time.Time `json:"last_seen"`
-	IsActive  bool      `json:"is_active"`
+	MAC          string    `json:"mac"`
+	IP           string    `json:"ip"`
+	Name         string    `json:"name"`
+	Vendor       string    `json:"vendor"`       // Short vendor name from OUI
+	Manufacturer string    `json:"manufacturer"` // Full manufacturer name from OUI
+	DeviceType   string    `json:"device_type"`  // Phone, Computer, IoT, Printer, etc.
+	Hostname     string    `json:"hostname"`     // Resolved hostname
+	Services     []string  `json:"services"`     // mDNS/SSDP services
+	FirstSeen    time.Time `json:"first_seen"`
+	LastSeen     time.Time `json:"last_seen"`
+	IsActive     bool      `json:"is_active"`
 }
 
 // BehavioralProfile represents aggregated traffic patterns for a device
 type BehavioralProfile struct {
-	MAC            string                `json:"mac"`
-	Destinations   map[string]*DestInfo  `json:"destinations"`
-	Ports          map[uint16]int        `json:"ports"`
-	Protocols      map[string]int        `json:"protocols"`
-	TotalPackets   int64                 `json:"total_packets"`
-	TotalBytes     int64                 `json:"total_bytes"`
-	FirstSeen      time.Time             `json:"first_seen"`
-	LastSeen       time.Time             `json:"last_seen"`
-	HourlyActivity [24]int               `json:"hourly_activity"`
+	MAC            string               `json:"mac"`
+	Destinations   map[string]*DestInfo `json:"destinations"`
+	Ports          map[uint16]int       `json:"ports"`
+	Protocols      map[string]int       `json:"protocols"`
+	TotalPackets   int64                `json:"total_packets"`
+	TotalBytes     int64                `json:"total_bytes"`
+	FirstSeen      time.Time            `json:"first_seen"`
+	LastSeen       time.Time            `json:"last_seen"`
+	HourlyActivity [24]int              `json:"hourly_activity"`
+
+	// Baseline metrics for anomaly detection
+	Baseline *ProfileBaseline `json:"baseline,omitempty"`
+
+	// Device-to-device communication (for topology visualization)
+	// Maps destination MAC → packet count (only for local network devices)
+	LocalCommunication map[string]int64 `json:"local_communication,omitempty"`
+}
+
+// ProfileBaseline contains rolling baseline metrics for anomaly detection
+type ProfileBaseline struct {
+	// Hourly metrics (last 24 hours)
+	AvgPacketsPerHour    float64 `json:"avg_packets_per_hour"`
+	StdDevPacketsPerHour float64 `json:"stddev_packets_per_hour"`
+
+	// Daily metrics (last 7 days)
+	AvgPacketsPerDay    float64 `json:"avg_packets_per_day"`
+	StdDevPacketsPerDay float64 `json:"stddev_packets_per_day"`
+
+	// Destination patterns
+	AvgUniqueDestinations float64 `json:"avg_unique_destinations"`
+	StdDevDestinations    float64 `json:"stddev_destinations"`
+
+	// Port patterns
+	AvgUniquePorts float64 `json:"avg_unique_ports"`
+	StdDevPorts    float64 `json:"stddev_ports"`
+
+	// Protocol distribution baseline
+	ProtocolDistribution map[string]float64 `json:"protocol_distribution"`
+
+	// Timing
+	LastCalculated time.Time `json:"last_calculated"`
+	SampleCount    int       `json:"sample_count"`
 }
 
 // DestInfo contains information about a communication destination
@@ -85,16 +122,24 @@ type DatabaseManager struct {
 	mu     sync.RWMutex
 }
 
+// DeviceStore describes the subset of device operations required by other components.
+type DeviceStore interface {
+	SaveDevice(device *Device) error
+	GetAllDevices() ([]*Device, error)
+}
+
+var _ DeviceStore = (*DatabaseManager)(nil)
+
 // NewDatabaseManager initializes a new DatabaseManager with BadgerDB
 func NewDatabaseManager(path string) (*DatabaseManager, error) {
 	log := logger.NewComponentLogger("Database")
-	
+
 	// Configure BadgerDB options
 	opts := badger.DefaultOptions(path)
 	opts.Logger = nil // Disable BadgerDB's default logger
 
 	log.Info("Opening database at %s", path)
-	
+
 	// Open BadgerDB
 	db, err := badger.Open(opts)
 	if err != nil {
@@ -125,7 +170,7 @@ func (dm *DatabaseManager) Close() error {
 	defer dm.mu.Unlock()
 
 	dm.logger.Info("Closing database...")
-	
+
 	if dm.db != nil {
 		if err := dm.db.Close(); err != nil {
 			dm.logger.Error("Failed to close database: %v", err)

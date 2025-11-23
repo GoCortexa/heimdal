@@ -106,6 +106,13 @@ type CloudConfig struct {
 	Provider string    `json:"provider"` // "aws" or "gcp"
 	AWS      AWSConfig `json:"aws"`
 	GCP      GCPConfig `json:"gcp"`
+	
+	// Privacy controls
+	SendDeviceInfo    bool `json:"send_device_info"`     // Send device discovery data
+	SendProfiles      bool `json:"send_profiles"`        // Send behavioral profiles
+	SendAnomalies     bool `json:"send_anomalies"`       // Send detected anomalies
+	AnonymizeData     bool `json:"anonymize_data"`       // Hash sensitive fields
+	SendDiagnostics   bool `json:"send_diagnostics"`     // Send diagnostic telemetry
 }
 
 // AWSConfig contains AWS IoT Core settings
@@ -290,6 +297,12 @@ func DefaultConfig() (*DesktopConfig, error) {
 				ProjectID: "",
 				TopicID:   "",
 			},
+			// Privacy defaults: send basic telemetry for free tier
+			SendDeviceInfo:  true,  // Send device discovery (helps build device database)
+			SendProfiles:    true,  // Send behavioral profiles (helps ML models)
+			SendAnomalies:   false, // Don't send anomalies by default (privacy)
+			AnonymizeData:   true,  // Anonymize by default
+			SendDiagnostics: false, // Opt-in for diagnostics
 		},
 		Logging: LoggingConfig{
 			Level: "info",

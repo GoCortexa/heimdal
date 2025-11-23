@@ -22,6 +22,8 @@ const (
 	AnomalyTrafficSpike          AnomalyType = "traffic_spike"
 	AnomalyNewDevice             AnomalyType = "new_device"
 	AnomalyDormantDevice         AnomalyType = "dormant_device"
+	AnomalyProtocolShift         AnomalyType = "protocol_shift"
+	AnomalyDestinationSpike      AnomalyType = "destination_spike"
 )
 
 // Severity represents the severity level of an anomaly
@@ -118,6 +120,16 @@ func (d *Detector) Analyze(profile *database.BehavioralProfile) ([]*Anomaly, err
 	spikeAnomalies := d.detectTrafficSpikes(profile)
 	anomalies = append(anomalies, spikeAnomalies...)
 
+	// Detect protocol shifts (if baseline available)
+	if profile.Baseline != nil && profile.Baseline.SampleCount > 3 {
+		protocolAnomalies := d.detectProtocolShifts(profile)
+		anomalies = append(anomalies, protocolAnomalies...)
+
+		// Detect destination count anomalies
+		destAnomalies := d.detectDestinationAnomalies(profile)
+		anomalies = append(anomalies, destAnomalies...)
+	}
+
 	return anomalies, nil
 }
 
@@ -192,7 +204,7 @@ func (d *Detector) detectUnusualPorts(profile *database.BehavioralProfile) []*An
 	for port, count := range profile.Ports {
 		if !commonPorts[port] {
 			percentage := float64(count) / float64(totalPortUsage)
-			
+
 			// If unusual port has more than sensitivity% of traffic, flag it
 			if percentage > (d.sensitivity * 0.1) { // Scale sensitivity for port detection
 				severity := d.calculatePortSeverity(port, percentage)
@@ -217,11 +229,53 @@ func (d *Detector) detectUnusualPorts(profile *database.BehavioralProfile) []*An
 	return anomalies
 }
 
-// detectTrafficSpikes identifies unusual increases in traffic volume
+// detectTrafficSpikes identifies unusual increases in traffic volume using baseline
 func (d *Detector) detectTrafficSpikes(profile *database.BehavioralProfile) []*Anomaly {
 	anomalies := make([]*Anomaly, 0)
 
-	// Calculate average hourly activity
+	// Use baseline if available
+	if profile.Baseline != nil && profile.Baseline.SampleCount > 3 {
+		// Use statistical baseline (mean + stddev)
+		avgPackets := profile.Baseline.AvgPacketsPerHour
+		stdDev := math.Sqrt(profile.Baseline.StdDevPacketsPerHour)
+
+		// Calculate current hourly rate
+		hoursSinceFirstSeen := time.Since(profile.FirstSeen).Hours()
+		if hoursSinceFirstSeen < 1 {
+			return anomalies
+		}
+		currentRate := float64(profile.TotalPackets) / hoursSinceFirstSeen
+
+		// Detect spike using z-score
+		zScore := (currentRate - avgPackets) / (stdDev + 1) // +1 to avoid division by zero
+
+		// Adjust threshold based on sensitivity
+		threshold := 2.0 + (2.0 * (1.0 - d.sensitivity)) // Range: 2.0 to 4.0 standard deviations
+
+		if math.Abs(zScore) > threshold {
+			severity := d.calculateZScoreSeverity(zScore)
+
+			anomaly := &Anomaly{
+				DeviceMAC: profile.MAC,
+				Type:      AnomalyTrafficSpike,
+				Severity:  severity,
+				Description: fmt.Sprintf("Traffic rate anomaly: %.0f packets/hour (baseline: %.0f±%.0f, z-score: %.2f)",
+					currentRate, avgPackets, stdDev, zScore),
+				Timestamp: time.Now(),
+				Evidence: map[string]interface{}{
+					"current_rate":    currentRate,
+					"baseline_avg":    avgPackets,
+					"baseline_stddev": stdDev,
+					"z_score":         zScore,
+				},
+			}
+			anomalies = append(anomalies, anomaly)
+		}
+
+		return anomalies
+	}
+
+	// Fallback to simple hourly activity analysis if no baseline
 	var totalActivity uint64
 	var activeHours int
 	for _, activity := range profile.HourlyActivity {
@@ -236,8 +290,6 @@ func (d *Detector) detectTrafficSpikes(profile *database.BehavioralProfile) []*A
 	}
 
 	avgActivity := float64(totalActivity) / float64(activeHours)
-
-	// Detect hours with activity significantly above average
 	spikeThreshold := avgActivity * (1.0 + (2.0 * d.sensitivity))
 
 	for hour, activity := range profile.HourlyActivity {
@@ -271,7 +323,7 @@ func (d *Detector) calculateSeverity(value, average float64) Severity {
 	}
 
 	ratio := value / average
-	
+
 	if ratio < 0.1 {
 		return SeverityHigh
 	} else if ratio < 0.3 {
@@ -327,6 +379,126 @@ func (d *Detector) calculateSpikeSeverity(activity, average float64) Severity {
 		return SeverityMedium
 	}
 	return SeverityLow
+}
+
+// calculateZScoreSeverity determines severity based on z-score
+func (d *Detector) calculateZScoreSeverity(zScore float64) Severity {
+	absZ := math.Abs(zScore)
+
+	if absZ > 4.0 {
+		return SeverityCritical
+	} else if absZ > 3.0 {
+		return SeverityHigh
+	} else if absZ > 2.0 {
+		return SeverityMedium
+	}
+	return SeverityLow
+}
+
+// detectProtocolShifts identifies changes in protocol distribution
+func (d *Detector) detectProtocolShifts(profile *database.BehavioralProfile) []*Anomaly {
+	anomalies := make([]*Anomaly, 0)
+
+	if profile.Baseline == nil || len(profile.Baseline.ProtocolDistribution) == 0 {
+		return anomalies
+	}
+
+	// Calculate current protocol distribution
+	totalProtocolPackets := int64(0)
+	for _, count := range profile.Protocols {
+		totalProtocolPackets += int64(count)
+	}
+
+	if totalProtocolPackets == 0 {
+		return anomalies
+	}
+
+	// Check each protocol for significant deviation from baseline
+	for protocol, currentCount := range profile.Protocols {
+		currentPercentage := float64(currentCount) / float64(totalProtocolPackets)
+		baselinePercentage := profile.Baseline.ProtocolDistribution[protocol]
+
+		// Calculate deviation
+		deviation := math.Abs(currentPercentage - baselinePercentage)
+
+		// Threshold based on sensitivity
+		threshold := 0.2 * (1.0 - d.sensitivity) // Range: 0.0 to 0.2
+
+		if deviation > threshold && currentPercentage > 0.1 {
+			severity := SeverityMedium
+			if deviation > 0.4 {
+				severity = SeverityHigh
+			}
+
+			anomaly := &Anomaly{
+				DeviceMAC: profile.MAC,
+				Type:      AnomalyProtocolShift,
+				Severity:  severity,
+				Description: fmt.Sprintf("Protocol distribution shift: %s now %.1f%% (baseline: %.1f%%)",
+					protocol, currentPercentage*100, baselinePercentage*100),
+				Timestamp: time.Now(),
+				Evidence: map[string]interface{}{
+					"protocol":            protocol,
+					"current_percentage":  currentPercentage * 100,
+					"baseline_percentage": baselinePercentage * 100,
+					"deviation":           deviation * 100,
+				},
+			}
+			anomalies = append(anomalies, anomaly)
+		}
+	}
+
+	return anomalies
+}
+
+// detectDestinationAnomalies identifies unusual changes in destination count
+func (d *Detector) detectDestinationAnomalies(profile *database.BehavioralProfile) []*Anomaly {
+	anomalies := make([]*Anomaly, 0)
+
+	if profile.Baseline == nil {
+		return anomalies
+	}
+
+	currentDestCount := float64(len(profile.Destinations))
+	avgDests := profile.Baseline.AvgUniqueDestinations
+	stdDev := math.Sqrt(profile.Baseline.StdDevDestinations)
+
+	if avgDests == 0 {
+		return anomalies
+	}
+
+	// Calculate z-score
+	zScore := (currentDestCount - avgDests) / (stdDev + 1)
+
+	// Adjust threshold based on sensitivity
+	threshold := 2.5 + (1.5 * (1.0 - d.sensitivity)) // Range: 2.5 to 4.0
+
+	if math.Abs(zScore) > threshold {
+		severity := d.calculateZScoreSeverity(zScore)
+
+		direction := "increase"
+		if zScore < 0 {
+			direction = "decrease"
+		}
+
+		anomaly := &Anomaly{
+			DeviceMAC: profile.MAC,
+			Type:      AnomalyDestinationSpike,
+			Severity:  severity,
+			Description: fmt.Sprintf("Unusual %s in unique destinations: %d (baseline: %.0f±%.0f, z-score: %.2f)",
+				direction, int(currentDestCount), avgDests, stdDev, zScore),
+			Timestamp: time.Now(),
+			Evidence: map[string]interface{}{
+				"current_count":   int(currentDestCount),
+				"baseline_avg":    avgDests,
+				"baseline_stddev": stdDev,
+				"z_score":         zScore,
+			},
+		}
+		anomalies = append(anomalies, anomaly)
+	}
+
+	return anomalies
 }
 
 // SetSensitivity updates the detector's sensitivity

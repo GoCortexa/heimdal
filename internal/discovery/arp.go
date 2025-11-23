@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/google/gopacket"
@@ -12,12 +14,12 @@ import (
 	"github.com/mosiko1234/heimdal/sensor/internal/netconfig"
 )
 
-// scanARP performs ARP scanning across the subnet
-func (s *Scanner) scanARP() {
+// scanARP performs ARP scanning across the subnet and returns the number of devices discovered.
+func (s *Scanner) scanARP() (int, error) {
 	netConfig := s.netConfig.GetConfig()
 	if netConfig == nil {
 		log.Println("Network configuration not available, skipping ARP scan")
-		return
+		return 0, fmt.Errorf("network configuration not available")
 	}
 
 	log.Printf("Starting ARP scan on %s (%s)", netConfig.Interface, netConfig.CIDR)
@@ -25,36 +27,39 @@ func (s *Scanner) scanARP() {
 	// Open pcap handle for sending and receiving ARP packets
 	handle, err := pcap.OpenLive(netConfig.Interface, 65536, true, pcap.BlockForever)
 	if err != nil {
-		log.Printf("Error opening pcap handle for ARP scan: %v", err)
-		return
+		if isPermissionError(err) {
+			s.reportStatus(StatusLevelError, "ARP scan requires elevated privileges: %v. %s", err, permissionGuidance())
+		}
+		return 0, fmt.Errorf("error opening pcap handle: %w", err)
 	}
 	defer handle.Close()
 
 	// Set BPF filter to capture only ARP replies
 	if err := handle.SetBPFFilter("arp"); err != nil {
-		log.Printf("Error setting BPF filter: %v", err)
-		return
+		return 0, fmt.Errorf("error setting BPF filter: %w", err)
 	}
 
 	// Get local MAC address
 	iface, err := net.InterfaceByName(netConfig.Interface)
 	if err != nil {
-		log.Printf("Error getting interface: %v", err)
-		return
+		return 0, fmt.Errorf("error getting interface %s: %w", netConfig.Interface, err)
 	}
 	srcMAC := iface.HardwareAddr
 
 	// Start goroutine to listen for ARP replies
 	replyChan := make(chan arpReply, 100)
 	done := make(chan struct{})
-	
+
 	go s.listenARPReplies(handle, replyChan, done)
 
 	// Send ARP requests to all IPs in subnet
-	s.sendARPRequests(handle, netConfig, srcMAC)
+	if err := s.sendARPRequests(handle, netConfig, srcMAC); err != nil {
+		close(done)
+		return 0, fmt.Errorf("error sending ARP requests: %w", err)
+	}
 
 	// Wait for replies (with timeout)
-	timeout := time.After(3 * time.Second)
+	timeout := time.After(s.options.ARPReplyTimeout)
 	replyCount := 0
 
 collectReplies:
@@ -72,6 +77,7 @@ collectReplies:
 
 	close(done)
 	log.Printf("ARP scan completed: discovered %d devices", replyCount)
+	return replyCount, nil
 }
 
 // arpReply represents an ARP reply
@@ -83,7 +89,7 @@ type arpReply struct {
 // listenARPReplies listens for ARP reply packets
 func (s *Scanner) listenARPReplies(handle *pcap.Handle, replyChan chan<- arpReply, done chan struct{}) {
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-	
+
 	for {
 		select {
 		case <-done:
@@ -125,10 +131,10 @@ func (s *Scanner) listenARPReplies(handle *pcap.Handle, replyChan chan<- arpRepl
 }
 
 // sendARPRequests sends ARP requests to all IPs in the subnet
-func (s *Scanner) sendARPRequests(handle *pcap.Handle, netCfg *netconfig.NetworkConfig, srcMAC net.HardwareAddr) {
+func (s *Scanner) sendARPRequests(handle *pcap.Handle, netCfg *netconfig.NetworkConfig, srcMAC net.HardwareAddr) error {
 	// Generate all IPs in the subnet
 	ips := s.generateSubnetIPs(netCfg.Subnet)
-	
+
 	log.Printf("Sending ARP requests to %d IPs in subnet", len(ips))
 
 	for _, ip := range ips {
@@ -140,6 +146,7 @@ func (s *Scanner) sendARPRequests(handle *pcap.Handle, netCfg *netconfig.Network
 		// Build and send ARP request
 		if err := s.sendARPRequest(handle, srcMAC, netCfg.LocalIP, ip); err != nil {
 			log.Printf("Error sending ARP request to %s: %v", ip, err)
+			return err
 		}
 
 		// Small delay to avoid flooding the network
@@ -148,10 +155,12 @@ func (s *Scanner) sendARPRequests(handle *pcap.Handle, netCfg *netconfig.Network
 		// Check if we should stop
 		select {
 		case <-s.ctx.Done():
-			return
+			return nil
 		default:
 		}
 	}
+
+	return nil
 }
 
 // sendARPRequest sends a single ARP request packet
@@ -206,7 +215,7 @@ func (s *Scanner) generateSubnetIPs(subnet *net.IPNet) []net.IP {
 	}
 
 	mask := subnet.Mask
-	
+
 	// Calculate network and broadcast addresses
 	network := ip.Mask(mask)
 	broadcast := make(net.IP, 4)
@@ -244,4 +253,27 @@ func copyIP(ip net.IP) net.IP {
 	result := make(net.IP, len(ip))
 	copy(result, ip)
 	return result
+}
+
+func isPermissionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "permission") ||
+		strings.Contains(msg, "operation not permitted") ||
+		strings.Contains(msg, "access is denied")
+}
+
+func permissionGuidance() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "Grant Full Disk Access and run the agent with sudo on first launch to allow packet capture."
+	case "linux":
+		return "Run as root or grant CAP_NET_RAW and CAP_NET_ADMIN (e.g., sudo setcap cap_net_raw,cap_net_admin=eip <binary>)."
+	case "windows":
+		return "Run as Administrator and install Npcap with WinPcap compatibility mode."
+	default:
+		return "Ensure the agent has permissions to open raw sockets on this platform."
+	}
 }

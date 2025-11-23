@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heimdal Network Sensor Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        #networkTopology {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛡️ Heimdal Network Sensor</h1>
+            <div class="stats-bar" id="statsBar">
+                <div class="stat">
+                    <span class="stat-label">Total Devices</span>
+                    <span class="stat-value" id="totalDevices">-</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Active Devices</span>
+                    <span class="stat-value" id="activeDevices">-</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Total Packets</span>
+                    <span class="stat-value" id="totalPackets">-</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Uptime</span>
+                    <span class="stat-value" id="uptime">-</span>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <section class="topology-section">
+                <div class="section-header">
+                    <h2>🗺️ Network Topology</h2>
+                    <div class="topology-controls">
+                        <button class="btn-topology" onclick="toggleTopologyView('graph')" id="btnGraphView">Graph View</button>
+                        <button class="btn-topology" onclick="toggleTopologyView('list')" id="btnListView">List View</button>
+                        <button class="btn-topology" onclick="refreshTopology()">🔄 Refresh</button>
+                    </div>
+                </div>
+                
+                <div id="networkTopology"></div>
+                
+                <div class="topology-legend">
+                    <span class="legend-item">📱 Phone</span>
+                    <span class="legend-item">💻 Computer</span>
+                    <span class="legend-item">📡 Router</span>
+                    <span class="legend-item">🖨️ Printer</span>
+                    <span class="legend-item">📺 TV</span>
+                    <span class="legend-item">🔌 IoT</span>
+                </div>
+            </section>
+
+            <section class="anomalies-section" id="anomaliesSection" style="display: none;">
+                <div class="section-header">
+                    <h2>⚠️ Recent Anomalies</h2>
+                    <button class="close-btn" onclick="closeAnomalies()">✕</button>
+                </div>
+                
+                <div class="anomalies-container" id="anomaliesContainer">
+                    <p class="empty">No anomalies detected</p>
+                </div>
+            </section>
+
+            <section class="devices-section">
+                <div class="section-header">
+                    <h2>Discovered Devices</h2>
+                    <div class="header-controls">
+                        <button class="btn-filter" onclick="toggleFilters()">🔍 Filter</button>
+                        <span class="refresh-indicator" id="refreshIndicator">●</span>
+                    </div>
+                </div>
+                
+                <div class="filter-bar" id="filterBar" style="display: none;">
+                    <select id="deviceTypeFilter" onchange="applyFilters()">
+                        <option value="">All Device Types</option>
+                        <option value="phone">📱 Phones</option>
+                        <option value="computer">💻 Computers</option>
+                        <option value="router">📡 Routers</option>
+                        <option value="printer">🖨️ Printers</option>
+                        <option value="tv">📺 TVs</option>
+                        <option value="iot">🔌 IoT Devices</option>
+                        <option value="unknown">❓ Unknown</option>
+                    </select>
+                    <input type="text" id="searchInput" placeholder="Search by name, IP, MAC, or vendor..." oninput="applyFilters()">
+                </div>
+                
+                <div class="table-container">
+                    <table class="devices-table">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>MAC Address</th>
+                                <th>IP Address</th>
+                                <th>Device Name</th>
+                                <th>Vendor</th>
+                                <th>Last Seen</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="devicesTableBody">
+                            <tr>
+                                <td colspan="7" class="loading">Loading devices...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="profile-section" id="profileSection" style="display: none;">
+                <div class="section-header">
+                    <h2>Behavioral Profile</h2>
+                    <button class="close-btn" onclick="closeProfile()">✕</button>
+                </div>
+                
+                <div class="profile-content">
+                    <div class="profile-header">
+                        <h3 id="profileDeviceName">Device</h3>
+                        <p id="profileDeviceMAC">MAC: -</p>
+                    </div>
+
+                    <div class="profile-grid">
+                        <div class="profile-card">
+                            <h4>Traffic Summary</h4>
+                            <div class="profile-stats">
+                                <div class="profile-stat">
+                                    <span class="label">Total Packets:</span>
+                                    <span class="value" id="profilePackets">-</span>
+                                </div>
+                                <div class="profile-stat">
+                                    <span class="label">Total Bytes:</span>
+                                    <span class="value" id="profileBytes">-</span>
+                                </div>
+                                <div class="profile-stat">
+                                    <span class="label">First Seen:</span>
+                                    <span class="value" id="profileFirstSeen">-</span>
+                                </div>
+                                <div class="profile-stat">
+                                    <span class="label">Last Seen:</span>
+                                    <span class="value" id="profileLastSeen">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="profile-card">
+                            <h4>Top Destinations</h4>
+                            <div id="profileDestinations" class="list-container">
+                                <p class="empty">No data available</p>
+                            </div>
+                        </div>
+
+                        <div class="profile-card">
+                            <h4>Top Ports</h4>
+                            <div id="profilePorts" class="list-container">
+                                <p class="empty">No data available</p>
+                            </div>
+                        </div>
+
+                        <div class="profile-card">
+                            <h4>Protocols</h4>
+                            <div id="profileProtocols" class="list-container">
+                                <p class="empty">No data available</p>
+                            </div>
+                        </div>
+
+                        <div class="profile-card full-width">
+                            <h4>24-Hour Activity</h4>
+                            <div id="profileActivity" class="activity-chart">
+                                <p class="empty">No data available</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Last updated: <span id="lastUpdate">-</span></p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

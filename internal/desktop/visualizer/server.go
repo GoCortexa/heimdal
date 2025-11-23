@@ -80,10 +80,11 @@ func (v *Visualizer) setupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/devices/", v.HandleDeviceByMAC)
 	mux.HandleFunc("/api/v1/profiles/", v.HandleProfileByMAC)
 	mux.HandleFunc("/api/v1/tier", v.HandleTierInfo)
-	
+	mux.HandleFunc("/api/v1/topology", v.HandleTopology)
+
 	// WebSocket endpoint for real-time updates
 	mux.HandleFunc("/ws", v.handleWebSocket)
-	
+
 	// Static file serving for dashboard UI
 	// In production, this would serve from embedded files or a static directory
 	mux.HandleFunc("/", v.handleDashboard)
@@ -171,20 +172,20 @@ func (v *Visualizer) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "web/dashboard/index.html")
 		return
 	}
-	
+
 	// Serve other static files (CSS, JS)
 	if r.URL.Path == "/styles.css" {
 		w.Header().Set("Content-Type", "text/css")
 		http.ServeFile(w, r, "web/dashboard/styles.css")
 		return
 	}
-	
+
 	if r.URL.Path == "/app.js" {
 		w.Header().Set("Content-Type", "application/javascript")
 		http.ServeFile(w, r, "web/dashboard/app.js")
 		return
 	}
-	
+
 	// 404 for other paths
 	http.NotFound(w, r)
 }

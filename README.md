@@ -11,12 +11,16 @@ Both products share core functionality for network discovery, traffic analysis, 
 
 ### Shared Features (Both Products)
 - **Automated Device Discovery**: Continuous scanning using ARP and mDNS protocols
+- **Device Identification**: Automatic vendor lookup via IEEE OUI database (38K+ vendors)
+- **Device Classification**: Smart classification (Phone, Computer, IoT, Printer, etc.)
+- **Hostname Resolution**: Multi-method hostname discovery (DNS, mDNS, NetBIOS)
 - **Traffic Interception**: ARP spoofing to intercept and analyze network traffic
-- **Behavioral Profiling**: Build profiles of device communication patterns
-- **Anomaly Detection**: Identify unusual communication patterns and potential threats
-- **Local Web Dashboard**: Monitor your network through a browser
-- **Embedded Database**: All data stored locally using BadgerDB
+- **Behavioral Profiling**: Build profiles with rolling baselines and statistical analysis
+- **Anomaly Detection**: ML-ready detection using z-scores and baseline deviations
+- **Local Web Dashboard**: Monitor your network through a modern browser interface
+- **Embedded Database**: All data stored locally using BadgerDB with 6MB OUI database
 - **Cloud Connectivity**: Optional integration with AWS IoT and Google Cloud
+- **Privacy Controls**: Granular control over what data is shared with cloud
 - **Single Binary**: Statically compiled with no external runtime dependencies
 
 ### Hardware-Specific Features
@@ -27,7 +31,10 @@ Both products share core functionality for network discovery, traffic analysis, 
 ### Desktop-Specific Features
 - **System Tray Integration**: Native OS integration with menu bar/system tray
 - **Desktop Notifications**: Real-time alerts for new devices and anomalies
+- **Rich Device Profiles**: Vendor, manufacturer, device type, hostname, and services
+- **Smart Filtering**: Filter and search devices by type, vendor, name, or IP
 - **Feature Tiers**: Free tier for network visibility, Pro tier for advanced features
+- **Privacy First**: Granular controls for cloud data sharing with anonymization
 - **Auto-Start**: Optional automatic startup on system boot
 - **Cross-Platform**: Runs on Windows, macOS, and Linux
 
@@ -497,5 +504,6 @@ To upgrade your tier, visit the dashboard settings or contact sales.
 - [BUILD.md](BUILD.md) - Build process and cross-compilation guide
 - [LOGGING_AND_ERROR_HANDLING.md](LOGGING_AND_ERROR_HANDLING.md) - Error handling patterns
 - [Desktop User Guide](docs/DESKTOP_USER_GUIDE.md) - Desktop installation and usage guide
+- [Device Identification](docs/DEVICE_IDENTIFICATION.md) - How Heimdal identifies devices
 - [Developer Guide](docs/DEVELOPER_GUIDE.md) - Contributing and extending Heimdal
 - [Ansible Migration Guide](ansible/MIGRATION_GUIDE.md) - Migrating hardware deployments

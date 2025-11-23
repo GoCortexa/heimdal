@@ -25,13 +25,13 @@ func TestDeviceDiscoveryToDatabaseFlow(t *testing.T) {
 
 	// Create network configuration (mock)
 	netConfig := netconfig.NewAutoConfig()
-	
+
 	// Try to detect network with timeout, skip test if no network available
 	detectDone := make(chan error, 1)
 	go func() {
 		detectDone <- netConfig.DetectNetwork()
 	}()
-	
+
 	select {
 	case err := <-detectDone:
 		if err != nil {
@@ -52,6 +52,8 @@ func TestDeviceDiscoveryToDatabaseFlow(t *testing.T) {
 		60*time.Second, // scan interval
 		false,          // mDNS disabled for test
 		5*time.Minute,  // inactive timeout
+		nil,
+		nil,
 	)
 
 	// Start scanner

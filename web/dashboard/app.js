@@ -7,6 +7,10 @@ const REFRESH_INTERVAL = 10000;
 // Global state
 let refreshTimer = null;
 let currentDeviceMAC = null;
+let allDevices = [];
+let filteredDevices = [];
+let network = null; // Vis.js network instance
+let topologyData = null;
 
 // WebSocket connection
 let ws = null;
@@ -14,6 +18,7 @@ let ws = null;
 // Initialize dashboard on page load
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Heimdal Dashboard initialized');
+    initializeTopology();
     loadDashboard();
     startAutoRefresh();
     connectWebSocket();
@@ -40,10 +45,11 @@ async function loadDashboard() {
         const indicator = document.getElementById('refreshIndicator');
         indicator.classList.add('active');
 
-        // Load stats and devices in parallel
+        // Load stats, devices, and topology in parallel
         await Promise.all([
             loadStats(),
-            loadDevices()
+            loadDevices(),
+            loadTopology()
         ]);
 
         // Update last update time
@@ -83,6 +89,9 @@ async function loadDevices() {
         
         const devices = await response.json();
         
+        // Store all devices globally
+        allDevices = devices;
+        
         const tbody = document.getElementById('devicesTableBody');
         
         if (devices.length === 0) {
@@ -97,26 +106,10 @@ async function loadDevices() {
             }
             return new Date(b.last_seen) - new Date(a.last_seen);
         });
-
-        tbody.innerHTML = devices.map(device => `
-            <tr class="${device.is_active ? 'active' : 'inactive'}">
-                <td>
-                    <span class="status-indicator ${device.is_active ? 'active' : 'inactive'}">
-                        ${device.is_active ? '●' : '○'}
-                    </span>
-                </td>
-                <td class="mono">${escapeHtml(device.mac)}</td>
-                <td class="mono">${escapeHtml(device.ip)}</td>
-                <td>${escapeHtml(device.name || 'Unknown')}</td>
-                <td>${escapeHtml(device.vendor || '-')}</td>
-                <td>${formatTimestamp(device.last_seen)}</td>
-                <td>
-                    <button class="btn-view" onclick="viewProfile('${escapeHtml(device.mac)}')">
-                        View Profile
-                    </button>
-                </td>
-            </tr>
-        `).join('');
+        
+        // Apply filters if any
+        filteredDevices = devices;
+        renderDevices(filteredDevices);
         
         // Update stats
         const totalDevices = devices.length;
@@ -128,6 +121,47 @@ async function loadDevices() {
         const tbody = document.getElementById('devicesTableBody');
         tbody.innerHTML = '<tr><td colspan="7" class="error">Failed to load devices</td></tr>';
     }
+}
+
+// Render devices table
+function renderDevices(devices) {
+    const tbody = document.getElementById('devicesTableBody');
+    
+    if (devices.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">No devices match filters</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = devices.map(device => `
+            <tr class="${device.is_active ? 'active' : 'inactive'}">
+                <td>
+                    <span class="status-indicator ${device.is_active ? 'active' : 'inactive'}">
+                        ${device.is_active ? '●' : '○'}
+                    </span>
+                </td>
+                <td class="mono">${escapeHtml(device.mac)}</td>
+                <td class="mono">${escapeHtml(device.ip)}</td>
+                <td>
+                    <div class="device-name">
+                        ${getDeviceIcon(device.device_type)}
+                        <span>${escapeHtml(device.name || device.hostname || 'Unknown')}</span>
+                    </div>
+                    ${device.device_type && device.device_type !== 'unknown' ? 
+                        `<div class="device-type-badge">${escapeHtml(device.device_type)}</div>` : ''}
+                </td>
+                <td>
+                    <div>${escapeHtml(device.vendor || '-')}</div>
+                    ${device.manufacturer && device.manufacturer !== device.vendor ? 
+                        `<div class="manufacturer-detail">${escapeHtml(device.manufacturer)}</div>` : ''}
+                </td>
+                <td>${formatTimestamp(device.last_seen)}</td>
+                <td>
+                    <button class="btn-view" onclick="viewProfile('${escapeHtml(device.mac)}')">
+                        View Profile
+                    </button>
+                </td>
+            </tr>
+        `).join('');
 }
 
 // View device profile
@@ -444,5 +478,272 @@ function handleWebSocketMessage(message) {
             
         default:
             console.log('Unknown message type:', message.type);
+    }
+}
+
+// Get device icon based on device type
+function getDeviceIcon(deviceType) {
+    const icons = {
+        'phone': '📱',
+        'tablet': '📱',
+        'computer': '💻',
+        'laptop': '💻',
+        'server': '🖥️',
+        'router': '📡',
+        'switch': '🔀',
+        'printer': '🖨️',
+        'scanner': '🖨️',
+        'tv': '📺',
+        'streaming': '📺',
+        'camera': '📷',
+        'speaker': '🔊',
+        'iot': '🔌',
+        'smarthome': '🏠',
+        'nas': '💾',
+        'console': '🎮',
+        'wearable': '⌚',
+        'unknown': '❓'
+    };
+    
+    return icons[deviceType] || icons['unknown'];
+}
+
+// Toggle filter bar
+function toggleFilters() {
+    const filterBar = document.getElementById('filterBar');
+    filterBar.style.display = filterBar.style.display === 'none' ? 'flex' : 'none';
+}
+
+// Apply filters to device list
+function applyFilters() {
+    const typeFilter = document.getElementById('deviceTypeFilter').value;
+    const searchText = document.getElementById('searchInput').value.toLowerCase();
+    
+    filteredDevices = allDevices.filter(device => {
+        // Type filter
+        if (typeFilter && device.device_type !== typeFilter) {
+            return false;
+        }
+        
+        // Search filter
+        if (searchText) {
+            const searchableText = [
+                device.name,
+                device.hostname,
+                device.ip,
+                device.mac,
+                device.vendor,
+                device.manufacturer
+            ].filter(Boolean).join(' ').toLowerCase();
+            
+            if (!searchableText.includes(searchText)) {
+                return false;
+            }
+        }
+        
+        return true;
+    });
+    
+    renderDevices(filteredDevices);
+}
+
+// Close anomalies section
+function closeAnomalies() {
+    document.getElementById('anomaliesSection').style.display = 'none';
+}
+
+// Initialize network topology visualization
+function initializeTopology() {
+    const container = document.getElementById('networkTopology');
+    
+    // Vis.js options for network visualization
+    const options = {
+        nodes: {
+            shape: 'dot',
+            size: 20,
+            font: {
+                size: 14,
+                face: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto'
+            },
+            borderWidth: 2,
+            shadow: true
+        },
+        edges: {
+            width: 1,
+            color: {
+                color: '#848484',
+                highlight: '#667eea',
+                hover: '#667eea'
+            },
+            smooth: {
+                type: 'continuous',
+                roundness: 0.5
+            },
+            arrows: {
+                to: {
+                    enabled: false
+                }
+            }
+        },
+        physics: {
+            enabled: true,
+            barnesHut: {
+                gravitationalConstant: -8000,
+                centralGravity: 0.3,
+                springLength: 150,
+                springConstant: 0.04,
+                damping: 0.09,
+                avoidOverlap: 0.5
+            },
+            stabilization: {
+                iterations: 200
+            }
+        },
+        interaction: {
+            hover: true,
+            tooltipDelay: 100,
+            navigationButtons: true,
+            keyboard: true
+        }
+    };
+    
+    // Initialize empty network
+    const data = { nodes: [], edges: [] };
+    network = new vis.Network(container, data, options);
+    
+    // Add click event listener
+    network.on('click', function(params) {
+        if (params.nodes.length > 0) {
+            const mac = params.nodes[0];
+            viewProfile(mac);
+        }
+    });
+    
+    // Add hover event listener
+    network.on('hoverNode', function(params) {
+        const node = topologyData.nodes.find(n => n.id === params.node);
+        if (node) {
+            const tooltip = `${getDeviceIcon(node.type)} ${node.label}\n` +
+                          `IP: ${node.ip}\n` +
+                          `Vendor: ${node.vendor || 'Unknown'}\n` +
+                          `Packets: ${formatNumber(node.total_packets)}`;
+            network.canvas.body.container.title = tooltip;
+        }
+    });
+}
+
+// Load network topology data
+async function loadTopology() {
+    try {
+        const response = await fetch(`${API_BASE}/topology`);
+        if (!response.ok) {
+            console.error('Failed to fetch topology');
+            return;
+        }
+        
+        const topology = await response.json();
+        topologyData = topology;
+        
+        if (network) {
+            renderTopology(topology);
+        }
+    } catch (error) {
+        console.error('Failed to load topology:', error);
+    }
+}
+
+// Render network topology
+function renderTopology(topology) {
+    if (!network || !topology) return;
+    
+    // Device type colors
+    const typeColors = {
+        'phone': '#4caf50',
+        'tablet': '#4caf50',
+        'computer': '#2196f3',
+        'laptop': '#2196f3',
+        'server': '#9c27b0',
+        'router': '#ff9800',
+        'switch': '#ff9800',
+        'printer': '#795548',
+        'tv': '#e91e63',
+        'streaming': '#e91e63',
+        'speaker': '#00bcd4',
+        'iot': '#607d8b',
+        'smarthome': '#607d8b',
+        'nas': '#9c27b0',
+        'console': '#e91e63',
+        'camera': '#795548',
+        'unknown': '#9e9e9e'
+    };
+    
+    // Convert topology nodes to vis.js format
+    const visNodes = topology.nodes.map(node => {
+        const color = typeColors[node.type] || typeColors['unknown'];
+        const size = node.is_gateway ? 40 : (20 + Math.log(node.total_packets + 1) * 2);
+        
+        return {
+            id: node.id,
+            label: `${getDeviceIcon(node.type)} ${node.label}`,
+            color: {
+                background: color,
+                border: node.is_active ? color : '#ccc',
+                highlight: {
+                    background: color,
+                    border: '#667eea'
+                }
+            },
+            size: size,
+            title: `${node.label}\n${node.vendor || 'Unknown'}\n${node.ip}`,
+            font: {
+                color: node.is_active ? '#333' : '#999'
+            },
+            borderWidth: node.is_gateway ? 4 : 2,
+            borderWidthSelected: 4
+        };
+    });
+    
+    // Convert topology edges to vis.js format
+    const visEdges = topology.edges.map(edge => {
+        const width = Math.max(1, Math.min(10, Math.log(edge.packets + 1)));
+        
+        return {
+            from: edge.from,
+            to: edge.to,
+            value: edge.packets,
+            width: width,
+            title: `${formatNumber(edge.packets)} packets`
+        };
+    });
+    
+    // Update network
+    network.setData({
+        nodes: new vis.DataSet(visNodes),
+        edges: new vis.DataSet(visEdges)
+    });
+}
+
+// Refresh topology
+function refreshTopology() {
+    loadTopology();
+}
+
+// Toggle topology view
+function toggleTopologyView(view) {
+    const graphBtn = document.getElementById('btnGraphView');
+    const listBtn = document.getElementById('btnListView');
+    const topologyDiv = document.getElementById('networkTopology');
+    const devicesSection = document.querySelector('.devices-section');
+    
+    if (view === 'graph') {
+        graphBtn.classList.add('active');
+        listBtn.classList.remove('active');
+        topologyDiv.style.display = 'block';
+        devicesSection.style.display = 'none';
+    } else {
+        graphBtn.classList.remove('active');
+        listBtn.classList.add('active');
+        topologyDiv.style.display = 'none';
+        devicesSection.style.display = 'block';
     }
 }
