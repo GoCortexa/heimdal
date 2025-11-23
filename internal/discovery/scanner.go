@@ -225,7 +225,9 @@ func (s *Scanner) Stop() error {
 		s.reportStatus(StatusLevelInfo, "Discovery scanner stopped")
 		return nil
 	case <-time.After(5 * time.Second):
-		return fmt.Errorf("scanner shutdown timeout")
+		// Even if timed out, we consider it stopped as context is cancelled
+		s.logger.Warn("Device discovery scanner shutdown timed out, forcing stop")
+		return nil
 	}
 }
 

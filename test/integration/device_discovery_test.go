@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -31,14 +32,19 @@ func TestDeviceDiscoveryToDatabaseFlow(t *testing.T) {
 	go func() {
 		detectDone <- netConfig.DetectNetwork()
 	}()
-
+	
 	select {
 	case err := <-detectDone:
 		if err != nil {
 			t.Skipf("No network available for testing: %v", err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Skip("Network detection timed out - skipping test (expected on macOS)")
+		t.Skip("Network detection timed out - skipping test (expected on macOS/CI)")
+	}
+
+	// Check for privileges (required for ARP scanning)
+	if os.Geteuid() != 0 {
+		t.Log("Running as non-root user, ARP scanning might fail (expected in CI)")
 	}
 
 	// Create device channel
